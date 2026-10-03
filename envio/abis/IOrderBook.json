@@ -1,0 +1,38 @@
+[
+  {
+    "type": "event",
+    "name": "OrderPlaced",
+    "inputs": [
+      { "name": "orderId",  "type": "uint256", "indexed": true  },
+      { "name": "trader",   "type": "address", "indexed": true  },
+      { "name": "price",    "type": "uint256", "indexed": false },
+      { "name": "quantity", "type": "uint256", "indexed": false },
+      { "name": "side",     "type": "uint8",   "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "OrderUpdated",
+    "inputs": [
+      { "name": "orderId",  "type": "uint256", "indexed": true  },
+      { "name": "price",    "type": "uint256", "indexed": false },
+      { "name": "quantity", "type": "uint256", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "OrderCancelled",
+    "inputs": [
+      { "name": "orderId", "type": "uint256", "indexed": true }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "TradeExecuted",
+    "inputs": [
+      { "name": "orderId",  "type": "uint256", "indexed": true  },
+      { "name": "price",    "type": "uint256", "indexed": false },
+      { "name": "quantity", "type": "uint256", "indexed": false }
+    ]
+  }
+]

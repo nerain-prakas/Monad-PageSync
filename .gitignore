@@ -1,0 +1,17 @@
+# Environment
+.env
+
+# Foundry
+out/
+cache/
+lib/
+
+# Node
+node_modules/
+
+# Broadcast artifacts (contain tx details; keep deployments/ separate)
+broadcast/
+
+# OS
+.DS_Store
+Thumbs.db

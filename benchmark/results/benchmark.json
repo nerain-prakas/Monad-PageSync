@@ -1,0 +1,22 @@
+{
+  "note": "Run `forge script script/RunBenchmark.s.sol --broadcast` to generate real results",
+  "naive": {
+    "place":   { "total": 0, "count": 100, "avg": 0, "min": 0, "max": 0 },
+    "update":  { "total": 0, "count": 100, "avg": 0, "min": 0, "max": 0 },
+    "cancel":  { "total": 0, "count": 50,  "avg": 0, "min": 0, "max": 0 },
+    "execute": { "total": 0, "count": 50,  "avg": 0, "min": 0, "max": 0 },
+    "total": 0
+  },
+  "pagesync": {
+    "place":   { "total": 0, "count": 100, "avg": 0, "min": 0, "max": 0 },
+    "update":  { "total": 0, "count": 100, "avg": 0, "min": 0, "max": 0 },
+    "cancel":  { "total": 0, "count": 50,  "avg": 0, "min": 0, "max": 0 },
+    "execute": { "total": 0, "count": 50,  "avg": 0, "min": 0, "max": 0 },
+    "total": 0
+  },
+  "comparison": {
+    "totalGasDiff": 0,
+    "naiveTotal": 0,
+    "pagesyncTotal": 0
+  }
+}

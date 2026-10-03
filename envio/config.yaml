@@ -1,0 +1,31 @@
+# Envio HyperIndex configuration for Monad-PageSync
+# https://docs.envio.dev/docs/configuration
+
+name: monad-pagesync
+description: Indexes order-book events from NaiveOrderBook and PageSyncOrderBook on Monad Testnet
+
+networks:
+  - id: 10143           # Monad Testnet chain ID
+    start_block: 0
+    contracts:
+      - name: NaiveOrderBook
+        address:
+          - "0x0000000000000000000000000000000000000000"  # replace after deploy
+        abi_file_path: ./abis/IOrderBook.json
+        handler: ./src/handlers/OrderBookHandler.js
+        events:
+          - event: "OrderPlaced(uint256 indexed orderId, address indexed trader, uint256 price, uint256 quantity, uint8 side)"
+          - event: "OrderUpdated(uint256 indexed orderId, uint256 price, uint256 quantity)"
+          - event: "OrderCancelled(uint256 indexed orderId)"
+          - event: "TradeExecuted(uint256 indexed orderId, uint256 price, uint256 quantity)"
+
+      - name: PageSyncOrderBook
+        address:
+          - "0x0000000000000000000000000000000000000000"  # replace after deploy
+        abi_file_path: ./abis/IOrderBook.json
+        handler: ./src/handlers/OrderBookHandler.js
+        events:
+          - event: "OrderPlaced(uint256 indexed orderId, address indexed trader, uint256 price, uint256 quantity, uint8 side)"
+          - event: "OrderUpdated(uint256 indexed orderId, uint256 price, uint256 quantity)"
+          - event: "OrderCancelled(uint256 indexed orderId)"
+          - event: "TradeExecuted(uint256 indexed orderId, uint256 price, uint256 quantity)"
