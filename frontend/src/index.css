@@ -112,9 +112,25 @@
   padding: 0;
 }
 
-html, body {
+html {
+  min-height: 100%;
+  background-color: #0b0d1a;
+}
+
+body {
   min-height: 100vh;
+  margin: 0;
+  padding: 0;
   background-color: var(--bg-base);
+  background-image:
+    radial-gradient(1200px 800px at 15% 10%, rgba(29, 27, 75, 0.72) 0%, transparent 65%),
+    radial-gradient(1000px 700px at 85% 20%, rgba(15, 58, 74, 0.72) 0%, transparent 65%),
+    linear-gradient(to bottom, rgba(11, 13, 26, 0.65) 0%, rgba(11, 13, 26, 0.88) 100%),
+    url('/aurora_wallpaper.jpg');
+  background-position: center top;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: 15px;
@@ -125,11 +141,29 @@ html, body {
   overflow-x: hidden;
 }
 
+[data-theme="aurora-light"] body {
+  background-color: #eef1ff;
+  background-image:
+    radial-gradient(1200px 800px at 15% 10%, rgba(217, 212, 255, 0.82) 0%, transparent 65%),
+    radial-gradient(1000px 700px at 85% 20%, rgba(201, 241, 255, 0.82) 0%, transparent 65%),
+    linear-gradient(to bottom, rgba(238, 241, 255, 0.75) 0%, rgba(238, 241, 255, 0.92) 100%),
+    url('/aurora_wallpaper.jpg');
+}
+
 #root {
   min-height: 100vh;
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
+}
+
+.aurora-scene {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
 }
 
 /* ── Typography Classes ───────────────────────────────────────────────────── */
@@ -202,33 +236,7 @@ html, body {
   color: transparent;
 }
 
-/* ── Backdrop Scene & Drifting Orbs ───────────────────────────────────────── */
-.aurora-scene {
-  position: fixed;
-  inset: 0;
-  background-color: var(--bg-base);
-  background-image:
-    radial-gradient(1200px 800px at 15% 10%, rgba(29, 27, 75, 0.72) 0%, transparent 65%),
-    radial-gradient(1000px 700px at 85% 20%, rgba(15, 58, 74, 0.72) 0%, transparent 65%),
-    linear-gradient(to bottom, rgba(11, 13, 26, 0.68) 0%, rgba(11, 13, 26, 0.88) 100%),
-    url('/aurora_wallpaper.jpg');
-  background-position: center center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  overflow: hidden;
-  z-index: var(--z-scene);
-  pointer-events: none;
-}
-
-[data-theme="aurora-light"] .aurora-scene {
-  background-color: #eef1ff;
-  background-image:
-    radial-gradient(1200px 800px at 15% 10%, rgba(217, 212, 255, 0.82) 0%, transparent 65%),
-    radial-gradient(1000px 700px at 85% 20%, rgba(201, 241, 255, 0.82) 0%, transparent 65%),
-    linear-gradient(to bottom, rgba(238, 241, 255, 0.80) 0%, rgba(238, 241, 255, 0.94) 100%),
-    url('/aurora_wallpaper.jpg');
-}
+/* ── Luminous Drifting Orbs ───────────────────────────────────────────────── */
 
 .aurora-orb {
   position: absolute;
