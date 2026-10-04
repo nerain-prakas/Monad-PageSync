@@ -134,6 +134,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  contain: paint layout;
 }
 
 .viewport-overlay-controls {
@@ -189,6 +190,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-4);
+  contain: layout;
 }
 
 .stat-card__header {
@@ -249,6 +251,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-4);
+  contain: layout;
 }
 
 .bench-op-card {

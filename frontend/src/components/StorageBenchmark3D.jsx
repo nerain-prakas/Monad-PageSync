@@ -31,32 +31,37 @@ export default function StorageBenchmark3D({ mode = 'pagesync', triggerRef }) {
     camera.lookAt(0, 0, 0);
 
     // Renderer (Alpha enabled for transparent aurora pass-through)
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance',
+      precision: 'mediump',
+    });
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     renderer.setPixelRatio(dpr);
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setSize(container.clientWidth || 600, container.clientHeight || 360, false);
     renderer.setClearColor(0x000000, 0); // Transparent
     container.appendChild(renderer.domElement);
 
     // Controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
+    controls.dampingFactor = 0.08;
     controls.maxPolarAngle = Math.PI / 2 - 0.05;
     controls.minDistance = 8;
     controls.maxDistance = 35;
 
     // Lighting (Aurora Violet & Cyan palette)
-    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    const dir = new THREE.DirectionalLight(0xa5b4fc, 1.4);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dir = new THREE.DirectionalLight(0xa5b4fc, 1.2);
     dir.position.set(12, 22, 12);
     scene.add(dir);
 
-    const pt1 = new THREE.PointLight(0x22d3ee, 2.0, 35);
+    const pt1 = new THREE.PointLight(0x22d3ee, 1.8, 30);
     pt1.position.set(0, 6, 0);
     scene.add(pt1);
 
-    const pt2 = new THREE.PointLight(0x7c5cff, 1.6, 30);
+    const pt2 = new THREE.PointLight(0x7c5cff, 1.4, 25);
     pt2.position.set(-8, 3, -6);
     scene.add(pt2);
 
@@ -73,32 +78,47 @@ export default function StorageBenchmark3D({ mode = 'pagesync', triggerRef }) {
       triggerRef.current = { trigger: () => triggerWorkload(stateRef.current, scene) };
     }
 
+    // High-FPS Resize Handling via ResizeObserver (Zero Layout Thrashing)
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width: w, height: h } = entry.contentRect;
+        if (w > 0 && h > 0) {
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h, false);
+        }
+      }
+    });
+    ro.observe(container);
+
+    // Pause Three.js loop when offscreen via IntersectionObserver
+    let isVisible = true;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        isVisible = entry.isIntersecting;
+      },
+      { threshold: 0.05 }
+    );
+    io.observe(container);
+
     // Render loop
     let rafId;
     const animate = () => {
       rafId = requestAnimationFrame(animate);
 
-      // Responsive resize
-      const w = container.clientWidth || 600;
-      const h = container.clientHeight || 360;
-      if (
-        renderer.domElement.width !== Math.floor(w * dpr) ||
-        renderer.domElement.height !== Math.floor(h * dpr)
-      ) {
-        renderer.setSize(w, h, false);
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-      }
+      if (!isVisible) return; // Sleep when scrolled past
 
       // Smooth float for warmed slots
       const t = Date.now() * 0.0022;
-      stateRef.current.slots.forEach((slot, i) => {
+      const slots = stateRef.current.slots;
+      for (let i = 0; i < slots.length; i++) {
+        const slot = slots[i];
         if (slot.userData.isWarmed) {
           slot.position.y = slot.userData.baseY + Math.sin(t + i * 0.4) * 0.09;
         }
-      });
+      }
 
-      scene.rotation.y += 0.001;
+      scene.rotation.y += 0.0008;
       controls.update();
       renderer.render(scene, camera);
     };
@@ -106,6 +126,8 @@ export default function StorageBenchmark3D({ mode = 'pagesync', triggerRef }) {
 
     return () => {
       cancelAnimationFrame(rafId);
+      ro.disconnect();
+      io.disconnect();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);

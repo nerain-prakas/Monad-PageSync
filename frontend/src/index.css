@@ -25,10 +25,10 @@
   --glass-border-strong:  rgba(255, 255, 255, 0.32);
   --glass-highlight:      inset 0 1px 0 rgba(255, 255, 255, 0.35);   /* Top-edge light catch */
 
-  /* Blur & Saturation */
-  --blur-sm:              blur(8px) saturate(140%);
-  --blur-md:              blur(16px) saturate(160%);
-  --blur-lg:              blur(28px) saturate(180%);
+  /* Blur & Saturation (High FPS Optimized) */
+  --blur-sm:              blur(6px) saturate(130%);
+  --blur-md:              blur(12px) saturate(140%);
+  --blur-lg:              blur(16px) saturate(150%);
 
   /* Shadows — soft, diffuse, colored by depth not by light source */
   --shadow-1:             0 4px 16px rgba(0, 0, 0, 0.25);
@@ -122,15 +122,6 @@ body {
   margin: 0;
   padding: 0;
   background-color: var(--bg-base);
-  background-image:
-    radial-gradient(1200px 800px at 15% 10%, rgba(29, 27, 75, 0.72) 0%, transparent 65%),
-    radial-gradient(1000px 700px at 85% 20%, rgba(15, 58, 74, 0.72) 0%, transparent 65%),
-    linear-gradient(to bottom, rgba(11, 13, 26, 0.65) 0%, rgba(11, 13, 26, 0.88) 100%),
-    url('/aurora_wallpaper.jpg');
-  background-position: center top;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: 15px;
@@ -141,15 +132,6 @@ body {
   overflow-x: hidden;
 }
 
-[data-theme="aurora-light"] body {
-  background-color: #eef1ff;
-  background-image:
-    radial-gradient(1200px 800px at 15% 10%, rgba(217, 212, 255, 0.82) 0%, transparent 65%),
-    radial-gradient(1000px 700px at 85% 20%, rgba(201, 241, 255, 0.82) 0%, transparent 65%),
-    linear-gradient(to bottom, rgba(238, 241, 255, 0.75) 0%, rgba(238, 241, 255, 0.92) 100%),
-    url('/aurora_wallpaper.jpg');
-}
-
 #root {
   min-height: 100vh;
   position: relative;
@@ -158,12 +140,33 @@ body {
   flex-direction: column;
 }
 
+/* ── Hardware Accelerated Aurora Scene (Zero Repaint on Scroll) ───────────── */
 .aurora-scene {
   position: fixed;
   inset: 0;
+  background-color: var(--bg-base);
+  background-image:
+    radial-gradient(1200px 800px at 15% 10%, rgba(29, 27, 75, 0.72) 0%, transparent 65%),
+    radial-gradient(1000px 700px at 85% 20%, rgba(15, 58, 74, 0.72) 0%, transparent 65%),
+    linear-gradient(to bottom, rgba(11, 13, 26, 0.65) 0%, rgba(11, 13, 26, 0.88) 100%),
+    url('/aurora_wallpaper.jpg');
+  background-position: center top;
+  background-size: cover;
+  background-repeat: no-repeat;
   overflow: hidden;
   z-index: 0;
   pointer-events: none;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+[data-theme="aurora-light"] .aurora-scene {
+  background-color: #eef1ff;
+  background-image:
+    radial-gradient(1200px 800px at 15% 10%, rgba(217, 212, 255, 0.82) 0%, transparent 65%),
+    radial-gradient(1000px 700px at 85% 20%, rgba(201, 241, 255, 0.82) 0%, transparent 65%),
+    linear-gradient(to bottom, rgba(238, 241, 255, 0.75) 0%, rgba(238, 241, 255, 0.92) 100%),
+    url('/aurora_wallpaper.jpg');
 }
 
 /* ── Typography Classes ───────────────────────────────────────────────────── */
@@ -236,21 +239,21 @@ body {
   color: transparent;
 }
 
-/* ── Luminous Drifting Orbs ───────────────────────────────────────────────── */
-
+/* ── Luminous Drifting Orbs (Pre-blurred GPU Radial Ramps) ─────────────────── */
 .aurora-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
-  opacity: 0.42;
+  pointer-events: none;
+  opacity: 0.45;
   mix-blend-mode: screen;
   will-change: transform;
+  transform: translate3d(0, 0, 0);
 }
 
 .aurora-orb--violet {
-  width: 540px;
-  height: 540px;
-  background: var(--orb-violet);
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, rgba(124, 92, 255, 0.45) 0%, rgba(124, 92, 255, 0.12) 45%, transparent 70%);
   top: -120px;
   left: -80px;
   animation: orbDrift 28s ease-in-out infinite;
@@ -259,7 +262,7 @@ body {
 .aurora-orb--cyan {
   width: 480px;
   height: 480px;
-  background: var(--orb-cyan);
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.45) 0%, rgba(34, 211, 238, 0.12) 45%, transparent 70%);
   top: 25%;
   right: -120px;
   animation: orbDrift 34s ease-in-out infinite reverse;
@@ -268,7 +271,7 @@ body {
 .aurora-orb--pink {
   width: 440px;
   height: 440px;
-  background: var(--orb-pink);
+  background: radial-gradient(circle, rgba(255, 95, 162, 0.45) 0%, rgba(255, 95, 162, 0.12) 45%, transparent 70%);
   bottom: -140px;
   left: 28%;
   animation: orbDrift 40s ease-in-out infinite;
@@ -277,10 +280,9 @@ body {
 .aurora-orb--amber {
   width: 360px;
   height: 360px;
-  background: var(--orb-amber);
+  background: radial-gradient(circle, rgba(255, 180, 84, 0.35) 0%, rgba(255, 180, 84, 0.08) 45%, transparent 70%);
   top: 55%;
   left: 55%;
-  opacity: 0.28;
   animation: orbDrift 45s ease-in-out infinite reverse;
 }
 
@@ -294,6 +296,7 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   box-shadow: var(--glass-highlight), var(--shadow-1);
+  contain: content;
 }
 
 /* 4.2 Raised Glass Panel */
@@ -304,6 +307,7 @@ body {
   border: 1px solid var(--glass-border-strong);
   border-radius: var(--radius-md);
   box-shadow: var(--glass-highlight), var(--shadow-2);
+  contain: content;
 }
 
 /* 4.3 Top-Layer Glass Overlay */
@@ -331,22 +335,20 @@ body {
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(139, 123, 255, 0.35);
 }
 
-/* 4.5 Glass Chip / Badge */
+/* 4.5 Glass Chip / Badge (Nested-friendly, no redundant backdrop-filter) */
 .glass-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 4px 12px;
-  background: var(--glass-1);
-  -webkit-backdrop-filter: var(--blur-sm);
-  backdrop-filter: var(--blur-sm);
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
   font-family: var(--font-ui);
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-secondary);
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .glass-chip__dot {

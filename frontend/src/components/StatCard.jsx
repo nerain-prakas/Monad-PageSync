@@ -19,14 +19,21 @@ export default function StatCard({
   icon = null,
 }) {
   const cardRef = useRef(null);
+  const frameRef = useRef(null);
 
   const handleMouseMove = useCallback((e) => {
     if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    cardRef.current.style.setProperty('--mx', `${x}px`);
-    cardRef.current.style.setProperty('--my', `${y}px`);
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+    if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    frameRef.current = requestAnimationFrame(() => {
+      if (!cardRef.current) return;
+      const rect = cardRef.current.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      cardRef.current.style.setProperty('--mx', `${x}px`);
+      cardRef.current.style.setProperty('--my', `${y}px`);
+    });
   }, []);
 
   // Generate SVG path for sparkline
