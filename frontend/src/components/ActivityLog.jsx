@@ -1,12 +1,9 @@
 import { useState } from 'react';
 
 /**
- * 6.4 Activity Feed (ActivityLog)
- * - Recessed .glass-well container with rows separated by 1px rgba(255,255,255,0.08) dividers
- * - Timestamps in mono --text-muted
- * - Actor names / addresses in --text-primary
- * - Small .glass-chip__dot (success / warning / danger)
- * - Header with pulsing live chip
+ * Neo-Brutalist Activity Log & Mempool Stream
+ * - Solid slab with 2px ink border & hard shadow
+ * - Terminal style feed with mono timestamps and action tags
  */
 export default function ActivityLog({ events = [] }) {
   const [filter, setFilter] = useState('ALL');
@@ -17,7 +14,7 @@ export default function ActivityLog({ events = [] }) {
   });
 
   return (
-    <div className="glass-panel activity-feed-panel" style={{ padding: 'var(--space-5)' }}>
+    <div className="brutalist-panel" style={{ padding: '20px' }}>
       {/* Header */}
       <div
         style={{
@@ -26,25 +23,26 @@ export default function ActivityLog({ events = [] }) {
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '12px',
-          marginBottom: 'var(--space-4)',
+          marginBottom: '14px',
+          borderBottom: '2px solid var(--border-color)',
+          paddingBottom: '10px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <h3 className="text-heading">Event Stream & Mempool</h3>
-          <span className="glass-chip">
-            <span className="glass-chip__dot glass-chip__dot--live" />
-            LIVE
+          <span className="brutalist-badge brutalist-badge--volt" style={{ fontSize: '0.65rem' }}>
+            ● LIVE
           </span>
         </div>
 
         {/* Filter Pills */}
-        <div className="chip-group" style={{ display: 'flex', gap: '6px' }}>
+        <div style={{ display: 'flex', gap: '4px' }}>
           {['ALL', 'ORDER', 'TRADE', 'STORAGE'].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`chip ${filter === f ? 'active' : ''}`}
-              style={{ fontSize: '0.75rem', padding: '4px 12px' }}
+              className={`brutalist-btn ${filter === f ? 'brutalist-btn-volt' : ''}`}
+              style={{ fontSize: '0.68rem', padding: '3px 8px' }}
             >
               {f}
             </button>
@@ -52,11 +50,11 @@ export default function ActivityLog({ events = [] }) {
         </div>
       </div>
 
-      {/* List in .glass-well */}
+      {/* List in Terminal Well */}
       <div
-        className="glass-well"
+        className="brutalist-well"
         style={{
-          maxHeight: '340px',
+          maxHeight: '360px',
           overflowY: 'auto',
           padding: '0',
           display: 'flex',
@@ -64,26 +62,18 @@ export default function ActivityLog({ events = [] }) {
         }}
       >
         {filteredEvents.length === 0 ? (
-          <div
-            className="text-body"
-            style={{
-              padding: 'var(--space-5)',
-              textAlign: 'center',
-              color: 'var(--text-muted)',
-            }}
-          >
-            No events recorded in this stream filter.
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
+            NO EVENTS LOGGED IN BUFFER
           </div>
         ) : (
           filteredEvents.map((ev, index) => {
-            const dotType =
-              ev.status === 'success' || ev.type === 'TRADE'
-                ? 'var(--success)'
-                : ev.status === 'warning'
-                ? 'var(--warning)'
-                : ev.status === 'error'
-                ? 'var(--danger)'
-                : 'var(--accent-2)';
+            const isTrade = ev.type === 'TRADE';
+            const isStorage = ev.type === 'STORAGE';
+            const badgeClass = isTrade
+              ? 'brutalist-badge--volt'
+              : isStorage
+              ? 'brutalist-badge--cyan'
+              : 'brutalist-badge--purple';
 
             return (
               <div
@@ -92,69 +82,36 @@ export default function ActivityLog({ events = [] }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '12px 16px',
+                  padding: '10px 14px',
                   borderBottom:
                     index === filteredEvents.length - 1
                       ? 'none'
-                      : '1px solid rgba(255, 255, 255, 0.08)',
+                      : '1px solid var(--border-color)',
                   gap: '12px',
-                  transition: 'background 0.15s ease',
                 }}
-                className="activity-row"
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                  <span
-                    className="glass-chip__dot"
-                    style={{
-                      background: dotType,
-                      boxShadow: `0 0 8px ${dotType}`,
-                    }}
-                  />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                  <span className={`brutalist-badge ${badgeClass}`} style={{ fontSize: '0.65rem', flexShrink: 0 }}>
+                    {ev.action}
+                  </span>
                   <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span
-                        className="text-micro"
-                        style={{
-                          fontWeight: 600,
-                          color: 'var(--text-primary)',
-                          background: 'var(--glass-2)',
-                          padding: '1px 6px',
-                          borderRadius: '4px',
-                        }}
-                      >
-                        {ev.action}
-                      </span>
-                      <span className="text-data text-micro" style={{ color: 'var(--text-secondary)' }}>
-                        {ev.actor ? `${ev.actor.slice(0, 8)}…${ev.actor.slice(-4)}` : ev.subject}
-                      </span>
-                    </div>
+                    <span className="text-data" style={{ color: 'var(--text-primary)', fontSize: '0.78rem' }}>
+                      {ev.actor ? `${ev.actor.slice(0, 8)}…${ev.actor.slice(-4)}` : ev.subject}
+                    </span>
                     {ev.details && (
-                      <span className="text-micro" style={{ color: 'var(--text-muted)', marginTop: '2px' }}>
+                      <span className="text-micro" style={{ color: 'var(--text-muted)', textTransform: 'none' }}>
                         {ev.details}
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-end',
-                    flexShrink: 0,
-                  }}
-                >
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
                   <span className="text-data text-micro" style={{ color: 'var(--text-muted)' }}>
-                    {ev.time || 'just now'}
+                    {ev.time || 'now'}
                   </span>
                   {ev.gas && (
-                    <span
-                      className="text-data text-micro"
-                      style={{
-                        color: ev.gas < 15000 ? 'var(--success)' : 'var(--warning)',
-                        marginTop: '2px',
-                      }}
-                    >
+                    <span className="text-data" style={{ color: 'var(--accent-volt)', fontSize: '0.75rem' }}>
                       {ev.gas.toLocaleString()} gas
                     </span>
                   )}

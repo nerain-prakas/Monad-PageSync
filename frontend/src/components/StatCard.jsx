@@ -1,48 +1,26 @@
-import { useRef, useCallback } from 'react';
-
 /**
- * 6.1 KPI StatCard (Aurora Glassmorphism)
- * - Glass panel with cursor sheen tracking
- * - Sora display font for numbers with gradient text option
- * - JetBrains Mono delta indicator
- * - 1.5px gradient stroke sparkline with soft translucent area fill
+ * Neo-Brutalist StatCard
+ * - Solid opaque slab with 2px ink border
+ * - Hard offset shadow: 4px 4px 0px #000
+ * - High-impact display font with solid delta pill
+ * - High-contrast angular sparkline
  */
 export default function StatCard({
   label,
   value,
   subValue,
   delta,
-  deltaType = 'positive', // 'positive' | 'negative' | 'neutral'
+  deltaType = 'positive',
   sparklineData = [12, 18, 14, 22, 19, 28, 25, 32],
-  isGradientValue = false,
   badgeText = null,
   icon = null,
 }) {
-  const cardRef = useRef(null);
-  const frameRef = useRef(null);
-
-  const handleMouseMove = useCallback((e) => {
-    if (!cardRef.current) return;
-    const clientX = e.clientX;
-    const clientY = e.clientY;
-    if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    frameRef.current = requestAnimationFrame(() => {
-      if (!cardRef.current) return;
-      const rect = cardRef.current.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
-      cardRef.current.style.setProperty('--mx', `${x}px`);
-      cardRef.current.style.setProperty('--my', `${y}px`);
-    });
-  }, []);
-
-  // Generate SVG path for sparkline
   const minVal = Math.min(...sparklineData);
   const maxVal = Math.max(...sparklineData);
   const range = maxVal - minVal || 1;
-  const width = 160;
-  const height = 44;
-  const padding = 4;
+  const width = 120;
+  const height = 36;
+  const padding = 2;
 
   const points = sparklineData.map((val, idx) => {
     const x = padding + (idx / (sparklineData.length - 1)) * (width - padding * 2);
@@ -51,89 +29,58 @@ export default function StatCard({
   });
 
   const linePath = `M ${points.join(' L ')}`;
-  const areaPath = `${linePath} L ${width - padding},${height} L ${padding},${height} Z`;
-  const lastPoint = points[points.length - 1].split(',');
-
   const isGreen = deltaType === 'positive';
   const isRed = deltaType === 'negative';
-  const deltaColor = isGreen ? 'var(--success)' : isRed ? 'var(--danger)' : 'var(--accent-2)';
 
   return (
-    <div
-      ref={cardRef}
-      onMouseMove={handleMouseMove}
-      className="glass-panel card-hover card-sheen stat-card glass-enter"
-      style={{ padding: 'var(--space-4) var(--space-5)' }}
-    >
-      <div className="stat-card__header">
-        <div className="stat-card__title-group">
-          {icon && <span className="stat-card__icon">{icon}</span>}
-          <span className="text-micro" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {label}
-          </span>
+    <div className="brutalist-stat-card">
+      <div className="stat-card-top">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {icon && <span style={{ fontSize: '0.95rem' }}>{icon}</span>}
+          <span className="stat-card-label">{label}</span>
         </div>
         {badgeText && (
-          <span className="glass-chip" style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
-            <span className="glass-chip__dot glass-chip__dot--live" />
+          <span className="brutalist-badge brutalist-badge--volt" style={{ fontSize: '0.65rem' }}>
             {badgeText}
           </span>
         )}
       </div>
 
-      <div className="stat-card__body">
-        <div className="stat-card__values">
-          <div className={`stat-card__value ${isGradientValue ? 'text-gradient' : ''}`}>
-            {value}
-          </div>
-          {delta && (
-            <div className="stat-card__delta text-data" style={{ color: deltaColor }}>
-              <span>{isGreen ? '▲' : isRed ? '▼' : '●'}</span>
-              <span>{delta}</span>
-            </div>
-          )}
-        </div>
+      <div className="stat-card-val-row">
+        <div className="stat-card-val">{value}</div>
 
-        {/* Sparkline */}
-        <div className="stat-card__sparkline" aria-hidden="true">
+        {/* Angular Sparkline */}
+        <div style={{ width: '100px', height: '32px', flexShrink: 0 }}>
           <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="100%" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id={`grad-line-${label.replace(/\s+/g, '')}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="var(--accent)" />
-                <stop offset="100%" stopColor="var(--accent-2)" />
-              </linearGradient>
-              <linearGradient id={`grad-area-${label.replace(/\s+/g, '')}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="var(--accent-2)" stopOpacity="0.0" />
-              </linearGradient>
-            </defs>
-            <path
-              d={areaPath}
-              fill={`url(#grad-area-${label.replace(/\s+/g, '')})`}
-            />
             <path
               d={linePath}
               fill="none"
-              stroke={`url(#grad-line-${label.replace(/\s+/g, '')})`}
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle
-              cx={lastPoint[0]}
-              cy={lastPoint[1]}
-              r="3.5"
-              fill="var(--accent-2)"
-              style={{ filter: 'drop-shadow(0 0 6px var(--accent-2))' }}
+              stroke={isGreen ? 'var(--accent-volt)' : isRed ? 'var(--accent-pink)' : 'var(--accent-cyan)'}
+              strokeWidth="2.5"
+              strokeLinejoin="miter"
+              strokeLinecap="square"
             />
           </svg>
         </div>
       </div>
 
-      {subValue && (
-        <div className="stat-card__footer text-micro" style={{ marginTop: 'var(--space-2)' }}>
-          {subValue}
-        </div>
-      )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+        {delta && (
+          <span
+            className={`brutalist-badge ${
+              isGreen ? 'brutalist-badge--volt' : isRed ? 'brutalist-badge--pink' : 'brutalist-badge--cyan'
+            }`}
+            style={{ fontSize: '0.72rem' }}
+          >
+            {isGreen ? '▲' : isRed ? '▼' : '●'} {delta}
+          </span>
+        )}
+        {subValue && (
+          <span className="stat-card-sub" style={{ margin: 0, padding: 0, border: 'none', textAlign: 'right' }}>
+            {subValue}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

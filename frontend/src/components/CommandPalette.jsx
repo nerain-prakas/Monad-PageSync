@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 
 /**
- * 6.5 Command Palette / Modal (CommandPalette)
- * - Centered .glass-panel-overlay over a scrim with blur(6px)
- * - Large .glass-well input with subtle focus ring
- * - Results grouped with .text-micro headings
- * - glassRise entrance animation
+ * Neo-Brutalist Command Palette Modal
+ * - Solid slab with 3px ink border & hard offset shadow
+ * - High-contrast search input with sharp corners
  */
 export default function CommandPalette({
   isOpen,
@@ -28,12 +26,11 @@ export default function CommandPalette({
 
   useEffect(() => {
     if (isOpen) {
-      const timer = setTimeout(() => inputRef.current?.focus(), 50);
+      const timer = setTimeout(() => inputRef.current?.focus(), 40);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
-  // Filter actions
   const filtered = actions.filter((act) => {
     const q = query.toLowerCase();
     return (
@@ -43,10 +40,8 @@ export default function CommandPalette({
     );
   });
 
-  // Group by category
-  const categories = Array.from(new Set(filtered.map((a) => a.category || 'General')));
+  const categories = Array.from(new Set(filtered.map((a) => a.category || 'GENERAL')));
 
-  // Keyboard navigation
   useEffect(() => {
     if (!isOpen) return;
 
@@ -81,18 +76,14 @@ export default function CommandPalette({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Command Palette"
-      className="command-palette-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(5, 6, 16, 0.65)',
-        WebkitBackdropFilter: 'blur(8px)',
-        backdropFilter: 'blur(8px)',
-        zIndex: 'var(--z-overlay)',
+        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+        zIndex: 200,
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
@@ -102,33 +93,35 @@ export default function CommandPalette({
       }}
     >
       <div
-        className="glass-panel-overlay glass-enter command-palette-modal"
+        className="brutalist-panel-raised"
         style={{
           width: '100%',
-          maxWidth: '580px',
+          maxWidth: '560px',
           maxHeight: '80vh',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          padding: 'var(--space-4)',
+          padding: '16px',
+          border: '3px solid #000',
+          boxShadow: '8px 8px 0px #000',
         }}
       >
-        {/* Search Input Well */}
+        {/* Search Well */}
         <div
-          className="glass-well"
+          className="brutalist-well"
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
-            padding: '12px 16px',
-            marginBottom: 'var(--space-3)',
+            gap: '10px',
+            padding: '10px 14px',
+            marginBottom: '12px',
           }}
         >
-          <span style={{ color: 'var(--accent-2)', fontSize: '1.1rem' }}>⌕</span>
+          <span style={{ color: 'var(--accent-volt)', fontWeight: 800 }}>&gt;</span>
           <input
             ref={inputRef}
             type="text"
-            placeholder="Type a command or search action… (e.g. 'workload', 'mode', 'theme')"
+            placeholder="Type command or filter (e.g. 'workload', 'mode')…"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -139,65 +132,43 @@ export default function CommandPalette({
               border: 'none',
               outline: 'none',
               color: 'var(--text-primary)',
-              fontFamily: 'var(--font-ui)',
-              fontSize: '0.9375rem',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.875rem',
+              fontWeight: 700,
               width: '100%',
             }}
           />
           <kbd
-            className="text-data"
-            style={{
-              background: 'var(--glass-2)',
-              border: '1px solid var(--glass-border)',
-              borderRadius: '4px',
-              padding: '2px 6px',
-              fontSize: '0.7rem',
-              color: 'var(--text-muted)',
-            }}
+            className="brutalist-badge"
+            style={{ fontSize: '0.65rem', padding: '1px 5px', color: 'var(--text-muted)' }}
           >
             ESC
           </kbd>
         </div>
 
-        {/* Results List */}
+        {/* Results */}
         <div
           style={{
             overflowY: 'auto',
-            maxHeight: '380px',
+            maxHeight: '360px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '12px',
-            paddingRight: '4px',
+            gap: '10px',
           }}
         >
           {filtered.length === 0 ? (
-            <div
-              className="text-body"
-              style={{
-                textAlign: 'center',
-                padding: 'var(--space-5)',
-                color: 'var(--text-muted)',
-              }}
-            >
-              No matching actions found for &ldquo;{query}&rdquo;
+            <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              NO COMMANDS MATCHING &ldquo;{query}&rdquo;
             </div>
           ) : (
             categories.map((cat) => {
-              const catActions = filtered.filter((a) => (a.category || 'General') === cat);
+              const catActions = filtered.filter((a) => (a.category || 'GENERAL') === cat);
               if (catActions.length === 0) return null;
 
               return (
-                <div key={cat} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div
-                    className="text-micro"
-                    style={{
-                      padding: '4px 8px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.06em',
-                      color: 'var(--accent-2)',
-                    }}
-                  >
-                    {cat}
+                <div key={cat} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <div className="text-micro" style={{ color: 'var(--accent-volt)', padding: '2px 6px' }}>
+                    // {cat}
                   </div>
                   {catActions.map((act) => {
                     flatIndex += 1;
@@ -212,46 +183,32 @@ export default function CommandPalette({
                           onClose();
                         }}
                         onMouseEnter={() => setSelectedIndex(currentIndex)}
-                        className={`command-item ${isSelected ? 'command-item--selected' : ''}`}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          padding: '10px 14px',
-                          borderRadius: 'var(--radius-sm)',
+                          padding: '8px 12px',
                           cursor: 'pointer',
-                          background: isSelected ? 'var(--glass-2)' : 'transparent',
-                          border: isSelected ? '1px solid var(--glass-border-strong)' : '1px solid transparent',
-                          transition: 'all 0.15s ease',
+                          background: isSelected ? 'var(--accent-purple)' : 'transparent',
+                          color: isSelected ? '#ffffff' : 'var(--text-primary)',
+                          border: isSelected ? '1.5px solid #000' : '1.5px solid transparent',
+                          boxShadow: isSelected ? '2px 2px 0px #000' : 'none',
+                          transition: 'all 0.05s ease',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontSize: '1.1rem' }}>{act.icon || '✦'}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>{act.icon || '■'}</span>
                           <div>
-                            <div className="text-heading" style={{ fontSize: '0.875rem' }}>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 700 }}>
                               {act.title}
                             </div>
                             {act.description && (
-                              <div className="text-micro" style={{ color: 'var(--text-muted)' }}>
+                              <div style={{ fontSize: '0.72rem', opacity: 0.8, fontFamily: 'var(--font-ui)' }}>
                                 {act.description}
                               </div>
                             )}
                           </div>
                         </div>
-                        {act.shortcut && (
-                          <span
-                            className="text-data"
-                            style={{
-                              fontSize: '0.7rem',
-                              color: 'var(--text-muted)',
-                              padding: '2px 6px',
-                              background: 'var(--glass-1)',
-                              borderRadius: '4px',
-                            }}
-                          >
-                            {act.shortcut}
-                          </span>
-                        )}
                       </div>
                     );
                   })}
@@ -259,27 +216,6 @@ export default function CommandPalette({
               );
             })
           )}
-        </div>
-
-        {/* Footer info */}
-        <div
-          style={{
-            marginTop: 'var(--space-3)',
-            paddingTop: 'var(--space-2)',
-            borderTop: '1px solid var(--glass-border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            color: 'var(--text-muted)',
-          }}
-          className="text-micro"
-        >
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <span>↑↓ Navigate</span>
-            <span>↵ Select</span>
-            <span>Esc Close</span>
-          </div>
-          <span className="text-data">Monad PageSync v1.0</span>
         </div>
       </div>
     </div>

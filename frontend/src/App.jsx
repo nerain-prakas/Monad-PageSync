@@ -5,7 +5,6 @@ import ChartPanel from './components/ChartPanel';
 import ActivityLog from './components/ActivityLog';
 import CommandPalette from './components/CommandPalette';
 import ToastContainer from './components/ToastContainer';
-import GlassSwitch from './components/GlassSwitch';
 import EnvioTables from './components/EnvioTables';
 import ArchitectureExplainer from './components/ArchitectureExplainer';
 import Navbar from './components/Navbar';
@@ -56,7 +55,7 @@ const INITIAL_EVENTS = [
 
 export default function App() {
   const [mode, setMode] = useState('pagesync');
-  const [theme, setTheme] = useState('aurora'); // 'aurora' | 'aurora-light'
+  const [theme, setTheme] = useState('brutalist-dark');
   const [benchmark, setBenchmark] = useState(DEFAULT_BENCHMARK);
   const [stats, setStats] = useState({ envio: { envioAvailable: true, ordersPlaced: 24850, tradesExecuted: 14210 } });
   const [orders, setOrders] = useState(DEFAULT_ORDERS);
@@ -68,13 +67,11 @@ export default function App() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const triggerRef = useRef(null);
 
-  // ── Sync theme to HTML root ────────────────────────────────────────────────
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // ── Toast dispatcher ───────────────────────────────────────────────────────
-  const addToast = useCallback((title, message, type = 'info', duration = 4500) => {
+  const addToast = useCallback((title, message, type = 'info', duration = 3500) => {
     const id = `${Date.now()}-${Math.random()}`;
     setToasts((prev) => [...prev.slice(-3), { id, title, message, type, duration }]);
   }, []);
@@ -83,7 +80,6 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // ── Keyboard shortcut for Command Palette (Cmd/Ctrl + K) ───────────────────
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -95,7 +91,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // ── Data Fetcher ───────────────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
     try {
       const [bench, st, ord, tr] = await Promise.allSettled([
@@ -144,7 +139,6 @@ export default function App() {
     };
   }, [fetchAll, autoRefresh]);
 
-  // ── Workload Trigger ───────────────────────────────────────────────────────
   const handleTriggerWorkload = () => {
     if (triggerRef.current?.trigger) {
       triggerRef.current.trigger();
@@ -153,13 +147,12 @@ export default function App() {
     const isPs = mode === 'pagesync';
     const gasSaved = isPs ? '12,420 gas (Cold page miss avoided)' : '17,350 gas (+40% overhead)';
 
-    // Push live event
     const newEvent = {
       id: `ev-${Date.now()}`,
       type: 'STORAGE',
-      action: isPs ? 'PAGESYNC_BURST' : 'CONVENTIONAL_BURST',
+      action: isPs ? 'BURST::PAGESYNC' : 'BURST::CONVENTIONAL',
       subject: `100 Storage Ops on MonadDB`,
-      details: isPs ? 'All accesses resolved on warm 4KB page frame' : 'Encountered 68 cold storage misses',
+      details: isPs ? 'Warm 4KB page frame hit (0 I/O penalty)' : 'Encountered 68 cold storage misses',
       status: isPs ? 'success' : 'warning',
       time: 'just now',
       gas: isPs ? 12420 : 17350,
@@ -167,39 +160,36 @@ export default function App() {
     setEvents((prev) => [newEvent, ...prev.slice(0, 19)]);
 
     addToast(
-      'Workload Dispatched',
-      `Fired 100 ops across 3D storage grid · Avg ${gasSaved}`,
+      'WORKLOAD DISPATCHED',
+      `Fired 100 storage ops across MonadDB memory grid · ${gasSaved}`,
       isPs ? 'success' : 'warning',
-      4000
-    );
-  };
-
-  // ── Mode Switcher with Toast ───────────────────────────────────────────────
-  const handleModeChange = (newMode) => {
-    setMode(newMode);
-    addToast(
-      `Mode Switched: ${newMode === 'pagesync' ? 'PageSync Layout' : 'Conventional'}`,
-      newMode === 'pagesync'
-        ? 'Packed 2-slot contiguous layout active. Warm-page caching enabled.'
-        : 'Fragmented 5-slot layout active. Cold SLOAD page misses simulated.',
-      'info',
       3500
     );
   };
 
-  // ── Theme Switcher with Toast ──────────────────────────────────────────────
-  const handleThemeToggle = () => {
-    const nextTheme = theme === 'aurora' ? 'aurora-light' : 'aurora';
-    setTheme(nextTheme);
+  const handleModeChange = (newMode) => {
+    setMode(newMode);
     addToast(
-      'Theme Updated',
-      `Switched to ${nextTheme === 'aurora' ? 'Dark Aurora (Default)' : 'Aurora Light'} glassmorphism palette`,
+      `LAYOUT CHANGED: ${newMode.toUpperCase()}`,
+      newMode === 'pagesync'
+        ? 'Packed 2-slot contiguous layout active. Warm-page caching enabled.'
+        : 'Fragmented 5-slot mapping active. Cold SLOAD disk page penalties active.',
       'info',
-      2500
+      3000
     );
   };
 
-  // ── Command Palette Actions ────────────────────────────────────────────────
+  const handleThemeToggle = () => {
+    const nextTheme = theme === 'brutalist-dark' ? 'brutalist-light' : 'brutalist-dark';
+    setTheme(nextTheme);
+    addToast(
+      'THEME SWITCHED',
+      `Switched to ${nextTheme === 'brutalist-dark' ? 'Brutalist Dark (Slate)' : 'Brutalist Light (Paper)'}`,
+      'info',
+      2000
+    );
+  };
+
   const paletteActions = [
     {
       id: 'workload',
@@ -207,7 +197,6 @@ export default function App() {
       description: 'Simulate high-throughput order bursts on MonadDB storage page',
       category: 'Benchmark',
       icon: '⚡',
-      shortcut: '↵',
       onSelect: handleTriggerWorkload,
     },
     {
@@ -215,7 +204,7 @@ export default function App() {
       title: 'Switch to PageSync (2-Slot Contiguous)',
       description: 'Bit-packed layout with guaranteed 4KB warm page cache hit',
       category: 'Layout',
-      icon: '🔵',
+      icon: '🟢',
       onSelect: () => handleModeChange('pagesync'),
     },
     {
@@ -228,15 +217,15 @@ export default function App() {
     },
     {
       id: 'toggle-theme',
-      title: `Toggle Theme: ${theme === 'aurora' ? 'Aurora Light' : 'Dark Aurora'}`,
-      description: 'Switch frosted glass palette between deep midnight and airy luminous',
+      title: `Toggle Theme: ${theme === 'brutalist-dark' ? 'Light Paper' : 'Dark Slate'}`,
+      description: 'Switch between stark light and industrial dark brutalist palettes',
       category: 'Preferences',
-      icon: theme === 'aurora' ? '☀️' : '🌙',
+      icon: theme === 'brutalist-dark' ? '☀️' : '🌙',
       onSelect: handleThemeToggle,
     },
     {
       id: 'jump-metrics',
-      title: 'Jump to Key Performance Indicators',
+      title: 'Jump to 01. KPIs',
       description: 'Inspect gas savings and throughput metrics',
       category: 'Navigation',
       icon: '📈',
@@ -244,7 +233,7 @@ export default function App() {
     },
     {
       id: 'jump-viewport',
-      title: 'Jump to 3D Memory Viewport',
+      title: 'Jump to 02. 3D Memory Inspector',
       description: 'Navigate to interactive WebGL storage page frame',
       category: 'Navigation',
       icon: '🧊',
@@ -252,7 +241,7 @@ export default function App() {
     },
     {
       id: 'jump-diagnostics',
-      title: 'Jump to Gas Benchmark Diagnostics',
+      title: 'Jump to 03. Diagnostics',
       description: 'Inspect multi-series comparison chart and op breakdown',
       category: 'Navigation',
       icon: '📊',
@@ -260,7 +249,7 @@ export default function App() {
     },
     {
       id: 'jump-stream',
-      title: 'Jump to Envio Indexer & Mempool Stream',
+      title: 'Jump to 04. Mempool Stream',
       description: 'View real-time orders, trades, and storage events',
       category: 'Navigation',
       icon: '⚡',
@@ -268,26 +257,14 @@ export default function App() {
     },
     {
       id: 'jump-architecture',
-      title: 'Jump to Storage Page Architecture',
+      title: 'Jump to 05. Layout Specs',
       description: 'Review 128-slot 4KB memory specs and bitwise packing diagrams',
       category: 'Navigation',
       icon: '📐',
       onSelect: () => document.getElementById('architecture')?.scrollIntoView({ behavior: 'smooth' }),
     },
-    {
-      id: 'refresh-data',
-      title: 'Refresh Benchmark Traces Now',
-      description: 'Poll API endpoint for latest Monad RPC and Envio events',
-      category: 'Data',
-      icon: '🔄',
-      onSelect: () => {
-        fetchAll();
-        addToast('Data Refreshed', 'Successfully synchronized benchmark metrics', 'success', 2500);
-      },
-    },
   ];
 
-  // ── Metrics Calculations ───────────────────────────────────────────────────
   const nb = benchmark.naive;
   const pb = benchmark.pagesync;
   const naivePlaceAvg = Math.round(nb?.place?.avg || 17350);
@@ -296,15 +273,7 @@ export default function App() {
 
   return (
     <>
-      {/* ── Aurora Scene & Luminous Drifting Orbs (Behind Glass) ─────────────── */}
-      <div className="aurora-scene" aria-hidden="true">
-        <div className="aurora-orb aurora-orb--violet" />
-        <div className="aurora-orb aurora-orb--cyan" />
-        <div className="aurora-orb aurora-orb--pink" />
-        <div className="aurora-orb aurora-orb--amber" />
-      </div>
-
-      {/* ── Floating Sticky Navigation Bar ──────────────────────────────────── */}
+      {/* ── Brutalist Sticky Header ─────────────────────────────────────────── */}
       <Navbar
         mode={mode}
         onModeChange={handleModeChange}
@@ -317,85 +286,69 @@ export default function App() {
 
       {/* ── Main Application Shell ─────────────────────────────────────────── */}
       <main className="app">
-        {/* ── Hero Command Panel ─────────────────────────────────────────────── */}
-        <section className="glass-panel hero-panel glass-enter">
-          <div className="hero-title-area">
+        {/* ── Hero Command Deck ──────────────────────────────────────────────── */}
+        <section className="hero-deck">
+          <div className="hero-main">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="glass-chip" style={{ fontSize: '0.72rem', padding: '3px 10px' }}>
-                <span className="glass-chip__dot glass-chip__dot--live" />
-                MONAD STORAGE LOCALITY BENCHMARK
+              <span className="brutalist-badge brutalist-badge--volt">
+                MONAD EVM RESEARCH
               </span>
-              <span className="glass-chip" style={{ fontSize: '0.72rem', padding: '3px 10px', color: 'var(--accent-2)' }}>
-                4KB / 128 SLOTS
+              <span className="brutalist-badge brutalist-badge--cyan">
+                PAGE-FRAME: 4KB / 128 SLOTS
               </span>
             </div>
 
-            {/* The single signature .text-gradient element per view */}
-            <h1 className="text-display-xl text-gradient">
-              Page-Aware Storage Locality on Monad
+            <h1 className="text-display-xl">
+              PAGE-AWARE STORAGE LOCALITY ON MONAD
             </h1>
 
-            <p className="text-body" style={{ fontSize: '0.98rem' }}>
-              Explore how contiguous <strong>4KB MonadDB storage page packing</strong> eliminates
-              asynchronous SSD disk I/O penalties. Visualized in real time with frosted glassmorphism
-              and indexed via Envio HyperSync.
+            <p className="text-body" style={{ fontSize: '1.05rem', color: 'var(--text-secondary)' }}>
+              Contiguous <strong>4KB MonadDB storage page packing</strong> eliminates asynchronous SSD disk
+              I/O penalties. Visualized in real time with high-contrast industrial telemetry and indexed via Envio HyperSync.
             </p>
 
-            <div className="hero-badges-row">
-              <span className="glass-chip">
-                <span className="glass-chip__dot glass-chip__dot--live" />
-                128 Slots / Page
+            <div className="hero-tag-row">
+              <span className="brutalist-badge brutalist-badge--volt">
+                [SAVINGS: -28.4% GAS]
               </span>
-              <span className="glass-chip">
-                <span className="glass-chip__dot glass-chip__dot--accent" />
-                -28.4% Gas Overhead
+              <span className="brutalist-badge brutalist-badge--cyan">
+                [LAYOUT: 2-SLOT PACKED]
               </span>
-              <span className="glass-chip">
-                <span className="glass-chip__dot glass-chip__dot--warning" />
-                Async MonadDB SSD
+              <span className="brutalist-badge brutalist-badge--purple">
+                [STORAGE: ASYNC MONAD-DB]
               </span>
-              <span className="glass-chip">
-                <span className="glass-chip__dot glass-chip__dot--live" />
-                Envio HyperSync Active
+              <span className="brutalist-badge brutalist-badge--pink">
+                [INDEXER: HYPERSYNC ACTIVE]
               </span>
             </div>
           </div>
 
-          {/* Quick Action Control Box */}
-          <div className="glass-well hero-control-card">
+          {/* Quick Action Box */}
+          <div className="hero-control-box">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="text-micro" style={{ textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-2)' }}>
-                Active Benchmark Mode
+              <span className="text-micro" style={{ color: 'var(--accent-volt)' }}>
+                BENCHMARK CONTROLS
               </span>
-              <GlassSwitch
-                id="auto-refresh-toggle"
-                checked={autoRefresh}
-                onChange={setAutoRefresh}
-                label="Auto-Sync"
-              />
+              <button
+                onClick={() => setAutoRefresh((prev) => !prev)}
+                className={`brutalist-badge ${autoRefresh ? 'brutalist-badge--volt' : 'brutalist-badge--pink'}`}
+                style={{ cursor: 'pointer', border: '1px solid #000', padding: '2px 6px' }}
+                title="Toggle 12s live background polling"
+              >
+                AUTO-POLL: {autoRefresh ? 'ON' : 'OFF'}
+              </button>
             </div>
 
-            <div
-              className="glass-well"
-              style={{
-                padding: '4px',
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '4px',
-                borderRadius: 'var(--radius-pill)',
-              }}
-            >
+            <div className="mode-toggle-group">
               <button
                 onClick={() => handleModeChange('pagesync')}
-                className={`chart-mode-pill ${mode === 'pagesync' ? 'chart-mode-pill--active' : ''}`}
-                style={{ textAlign: 'center', padding: '6px 12px' }}
+                className={`mode-btn ${mode === 'pagesync' ? 'mode-btn--active' : ''}`}
               >
                 PageSync (2-Slot)
               </button>
               <button
                 onClick={() => handleModeChange('conventional')}
-                className={`chart-mode-pill ${mode === 'conventional' ? 'chart-mode-pill--active' : ''}`}
-                style={{ textAlign: 'center', padding: '6px 12px' }}
+                className={`mode-btn ${mode === 'conventional' ? 'mode-btn--active' : ''}`}
               >
                 Conventional (5-Slot)
               </button>
@@ -403,37 +356,33 @@ export default function App() {
 
             <button
               onClick={handleTriggerWorkload}
-              className="glass-button-primary"
-              style={{ width: '100%', padding: '10px 18px', fontSize: '0.85rem' }}
+              className="brutalist-btn-primary"
+              style={{ width: '100%', padding: '12px 18px' }}
             >
               <span>⚡</span>
-              <span>Dispatch 100 Ops Burst</span>
+              <span>DISPATCH 100 OPS BURST</span>
             </button>
           </div>
         </section>
 
-        {/* ── Section: Key Performance Indicators (#metrics) ────────────────── */}
-        <section id="metrics" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="section-header">
-            <div className="section-header__title-group">
-              <div className="section-header__heading">
-                <span>Executive Performance Metrics</span>
-                <span className="glass-chip" style={{ fontSize: '0.68rem', padding: '1px 8px' }}>
-                  {mode === 'pagesync' ? 'Contiguous Cache' : 'Fragmented Slots'}
-                </span>
-              </div>
-              <span className="section-header__sub">
-                MonadDB SSD page warm hit ratio & EVM gas benchmark telemetry
-              </span>
+        {/* ── Section: 01. KPIs ──────────────────────────────────────────────── */}
+        <section id="metrics">
+          <div className="section-title-bar">
+            <div className="section-title-bar__left">
+              <span className="section-number">// 01</span>
+              <h2 className="section-title">KEY PERFORMANCE INDICATORS</h2>
             </div>
+            <span className="section-subtitle">
+              MONAD-DB SSD BUFFER HIT TELEMETRY
+            </span>
           </div>
 
           <div className="kpi-grid">
             <StatCard
               label="Avg Gas / Place Op"
-              value={mode === 'pagesync' ? psPlaceAvg.toLocaleString() : naivePlaceAvg.toLocaleString()}
+              value={mode === 'pagesync' ? `${psPlaceAvg.toLocaleString()}` : `${naivePlaceAvg.toLocaleString()}`}
               subValue={mode === 'pagesync' ? 'Contiguous 2-slot warm cache' : 'Fragmented 5-slot page misses'}
-              delta={mode === 'pagesync' ? `-${gasSavingsPct}% vs Conventional` : `+40.2% Gas Penalty`}
+              delta={mode === 'pagesync' ? `-${gasSavingsPct}% VS CONVENTIONAL` : `+40.2% GAS OVERHEAD`}
               deltaType={mode === 'pagesync' ? 'positive' : 'negative'}
               sparklineData={mode === 'pagesync' ? [12400, 12450, 12380, 12420, 12390, 12410, 12430] : [17200, 17500, 17300, 17800, 17400, 17600, 17350]}
               icon="⚡"
@@ -443,17 +392,17 @@ export default function App() {
               label="Cold Page Miss Rate"
               value={mode === 'pagesync' ? '4.2%' : '68.5%'}
               subValue="MonadDB SSD asynchronous buffer misses"
-              delta={mode === 'pagesync' ? '-93.8% Page Faults' : '+64.3% Uncached Accesses'}
+              delta={mode === 'pagesync' ? '-93.8% FAULTS' : '+64.3% UNCACHED'}
               deltaType={mode === 'pagesync' ? 'positive' : 'negative'}
               sparklineData={mode === 'pagesync' ? [8.1, 7.2, 5.5, 4.9, 4.4, 4.2] : [45, 52, 61, 58, 64, 68.5]}
               icon="🧊"
             />
 
             <StatCard
-              label="Orderbook Throughput"
+              label="Order Throughput"
               value={mode === 'pagesync' ? '1,280 ops/s' : '895 ops/s'}
               subValue="Sustained limit order execution rate"
-              delta={mode === 'pagesync' ? '+43.0% Speedup' : 'Degraded by IO wait'}
+              delta={mode === 'pagesync' ? '+43.0% SPEEDUP' : 'DEGRADED BY IO'}
               deltaType={mode === 'pagesync' ? 'positive' : 'negative'}
               sparklineData={mode === 'pagesync' ? [980, 1050, 1120, 1180, 1240, 1280] : [920, 910, 890, 905, 895]}
               icon="📈"
@@ -463,101 +412,78 @@ export default function App() {
               label="Envio Indexer State"
               value={stats?.envio?.ordersPlaced?.toLocaleString() || '24,850'}
               subValue={`${stats?.envio?.tradesExecuted?.toLocaleString() || '14,210'} Trades Settled`}
-              delta="99.98% Synced"
+              delta="99.98% SYNCED"
               deltaType="neutral"
               sparklineData={[18200, 19500, 21200, 22800, 23900, 24850]}
-              badgeText="HyperSync"
+              badgeText="HYPERSYNC"
               icon="🛰️"
             />
           </div>
         </section>
 
-        {/* ── Section: 3D Storage Viewport (#viewport) ─────────────────────── */}
-        <section id="viewport" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="section-header">
-            <div className="section-header__title-group">
-              <div className="section-header__heading">
-                <span>3D Storage Page Frame Visualizer</span>
-                <span className="glass-chip" style={{ fontSize: '0.68rem', padding: '1px 8px' }}>
-                  WebGL Three.js
-                </span>
-              </div>
-              <span className="section-header__sub">
-                Interactive contiguous 32-byte slot layout over Monad 4KB memory boundary
-              </span>
+        {/* ── Section: 02. 3D Memory Inspector ──────────────────────────────── */}
+        <section id="viewport">
+          <div className="section-title-bar">
+            <div className="section-title-bar__left">
+              <span className="section-number">// 02</span>
+              <h2 className="section-title">3D STORAGE PAGE INSPECTOR</h2>
             </div>
-            <div className="text-micro" style={{ color: 'var(--text-muted)' }}>
-              Click & Drag to Orbit • Scroll to Zoom
-            </div>
+            <span className="section-subtitle">
+              DRAG TO ORBIT • SCROLL TO ZOOM • 4KB SLOTS
+            </span>
           </div>
 
-          <div className="glass-panel viewport-card glass-enter">
-            {/* Top Left Overlay Controls */}
-            <div className="viewport-overlay-controls">
-              <div className="glass-panel" style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="text-micro" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                  STORAGE PAGE FRAME
-                </span>
-                <span className="glass-chip" style={{ fontSize: '0.68rem', padding: '1px 8px' }}>
-                  {mode === 'pagesync' ? 'Contiguous Packed Mode' : 'Fragmented Mapping'}
-                </span>
-              </div>
+          <div className="viewport-frame">
+            <div className="viewport-top-hud">
+              <span className="brutalist-badge brutalist-badge--volt">
+                LAYOUT: {mode.toUpperCase()}
+              </span>
+              <span className="brutalist-badge brutalist-badge--cyan">
+                MONAD-DB BUFFER: READY
+              </span>
             </div>
 
-            {/* 3D WebGL Canvas */}
             <StorageBenchmark3D mode={mode} triggerRef={triggerRef} />
 
-            {/* Bottom Left HUD Legend */}
-            <div className="viewport-overlay-legend">
-              <div className="glass-panel legend-hud">
-                <div className="legend-item">
-                  <span className="legend-dot" style={{ background: 'var(--accent-2)', boxShadow: '0 0 8px var(--accent-2)' }} />
-                  <span>Page-Warmed SLOAD (Low Gas · Contiguous)</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-dot" style={{ background: 'var(--orb-pink)', boxShadow: '0 0 8px var(--orb-pink)' }} />
-                  <span>Cold SLOAD / SSTORE (High Gas · Page Miss)</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-dot" style={{ background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />
-                  <span>Envio Event Streamer Mesh</span>
-                </div>
+            <div className="viewport-bottom-hud">
+              <div className="hud-legend-item">
+                <span className="hud-square" style={{ background: 'var(--accent-cyan)' }} />
+                <span>Page-Warmed SLOAD (Low Gas · Contiguous)</span>
+              </div>
+              <div className="hud-legend-item">
+                <span className="hud-square" style={{ background: 'var(--accent-pink)' }} />
+                <span>Cold SLOAD / SSTORE (High Gas · Page Miss)</span>
               </div>
             </div>
 
-            {/* Bottom Right Interactive Trigger */}
-            <div className="viewport-overlay-actions">
+            <div className="viewport-action-hud">
               <button
                 onClick={handleTriggerWorkload}
-                className="glass-button-primary"
-                style={{ fontSize: '0.8125rem' }}
+                className="brutalist-btn-primary"
+                style={{ fontSize: '0.8rem', padding: '8px 16px' }}
               >
                 <span>⚡</span>
-                <span>Trigger 100 Ops Burst</span>
+                <span>TRIGGER 100 OPS</span>
               </button>
             </div>
           </div>
         </section>
 
-        {/* ── Section: Gas Benchmark Diagnostics (#diagnostics) ────────────── */}
-        <section id="diagnostics" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          <div className="section-header">
-            <div className="section-header__title-group">
-              <div className="section-header__heading">
-                <span>Gas Benchmark Diagnostics & Profiling</span>
-                <span className="glass-chip" style={{ fontSize: '0.68rem', padding: '1px 8px', color: 'var(--success)' }}>
-                  -28.4% Average Gas
-                </span>
-              </div>
-              <span className="section-header__sub">
-                Comparative analysis of Monad contiguous page allocation against traditional EVM slot mapping
-              </span>
+        {/* ── Section: 03. Diagnostics ───────────────────────────────────────── */}
+        <section id="diagnostics" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="section-title-bar">
+            <div className="section-title-bar__left">
+              <span className="section-number">// 03</span>
+              <h2 className="section-title">GAS BENCHMARK DIAGNOSTICS</h2>
             </div>
+            <span className="section-subtitle">
+              -28.4% AVERAGE GAS REDUCTION ACROSS SLOAD/SSTORE CYCLES
+            </span>
           </div>
 
           <ChartPanel benchmark={benchmark} />
 
-          {/* Benchmark Operation Grid */}
+          {/* Operation Cards */}
           <div className="bench-grid">
             {[
               { op: 'place', name: 'PLACE', naive: nb?.place?.avg || 17350, ps: pb?.place?.avg || 12420 },
@@ -569,25 +495,28 @@ export default function App() {
               const psRatio = ((ps / naive) * 100).toFixed(0);
 
               return (
-                <div key={op} className="glass-panel card-hover bench-op-card">
-                  <div className="bench-op-header">
-                    <span className="bench-op-name">{name}</span>
-                    <span className="glass-chip" style={{ fontSize: '0.68rem', padding: '1px 8px', color: 'var(--success)' }}>
-                      -{diffPct}% Gas
+                <div key={op} className="bench-card">
+                  <div className="bench-header">
+                    <span className="bench-op-title">{name}</span>
+                    <span className="brutalist-badge brutalist-badge--volt" style={{ fontSize: '0.65rem' }}>
+                      -{diffPct}% GAS
                     </span>
                   </div>
 
                   <div className="bench-row">
                     <span className="bench-label">Conventional</span>
-                    <span className="bench-val naive">{Math.round(naive).toLocaleString()}</span>
+                    <span className="bench-val" style={{ color: 'var(--accent-pink)' }}>
+                      {Math.round(naive).toLocaleString()}
+                    </span>
                   </div>
 
                   <div className="bench-row">
                     <span className="bench-label">PageSync</span>
-                    <span className="bench-val pagesync">{Math.round(ps).toLocaleString()}</span>
+                    <span className="bench-val" style={{ color: 'var(--accent-volt)' }}>
+                      {Math.round(ps).toLocaleString()}
+                    </span>
                   </div>
 
-                  {/* Relative bar */}
                   <div className="bench-bar-track">
                     <div className="bench-bar-fill" style={{ width: `${psRatio}%` }} />
                   </div>
@@ -597,43 +526,34 @@ export default function App() {
           </div>
         </section>
 
-        {/* ── Section: Live Envio Stream & Activity (#stream) ───────────────── */}
-        <section id="stream" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="section-header">
-            <div className="section-header__title-group">
-              <div className="section-header__heading">
-                <span>Live Envio HyperSync Stream & Mempool</span>
-                <span className="glass-chip">
-                  <span className="glass-chip__dot glass-chip__dot--live" />
-                  REAL-TIME
-                </span>
-              </div>
-              <span className="section-header__sub">
-                Decentralized order event indexing and live storage execution telemetry
-              </span>
+        {/* ── Section: 04. Mempool Stream ────────────────────────────────────── */}
+        <section id="stream">
+          <div className="section-title-bar">
+            <div className="section-title-bar__left">
+              <span className="section-number">// 04</span>
+              <h2 className="section-title">LIVE HYPERSYNC MEMPOOL & STREAM</h2>
             </div>
+            <span className="section-subtitle">
+              REAL-TIME EVENT INDEXING & ORDER TELEMETRY
+            </span>
           </div>
 
-          <div className="dashboard-grid-two-col">
+          <div className="two-col-grid">
             <EnvioTables orders={orders} trades={trades} backendOk={backendOk} />
             <ActivityLog events={events} />
           </div>
         </section>
 
-        {/* ── Section: Storage Page Architecture Explainer (#architecture) ─── */}
-        <section id="architecture" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="section-header">
-            <div className="section-header__title-group">
-              <div className="section-header__heading">
-                <span>MonadDB Storage Page Architecture & Memory Map</span>
-                <span className="glass-chip" style={{ fontSize: '0.68rem', padding: '1px 8px' }}>
-                  Solidity Bit-Packing
-                </span>
-              </div>
-              <span className="section-header__sub">
-                Contiguous 32-byte slot layout and warm-page cache alignment specifications
-              </span>
+        {/* ── Section: 05. Layout Specs ──────────────────────────────────────── */}
+        <section id="architecture">
+          <div className="section-title-bar">
+            <div className="section-title-bar__left">
+              <span className="section-number">// 05</span>
+              <h2 className="section-title">STORAGE PAGE ARCHITECTURE</h2>
             </div>
+            <span className="section-subtitle">
+              SOLIDITY STRUCT BIT-PACKING & 4KB CACHE HIT MECHANISM
+            </span>
           </div>
 
           <ArchitectureExplainer />
@@ -641,36 +561,34 @@ export default function App() {
 
         {/* ── Footer ─────────────────────────────────────────────────────────── */}
         <footer
-          className="glass-panel"
+          className="brutalist-panel"
           style={{
-            padding: '20px 24px',
+            padding: '16px 20px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '12px',
-            borderRadius: 'var(--radius-md)',
-            marginTop: 'var(--space-4)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--accent-2)' }}>
-              Monad-PageSync
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-volt)' }}>
+              MONAD::PAGESYNC
             </span>
             <span className="text-micro" style={{ color: 'var(--text-muted)' }}>
-              • High-Performance Page-Aware Storage on Monad EVM
+              [HIGH-PERFORMANCE BIT-PACKED STORAGE TELEMETRY]
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span className="text-micro" style={{ color: 'var(--text-muted)' }}>
-              Indexed with <strong style={{ color: 'var(--text-secondary)' }}>Envio HyperSync</strong>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className="brutalist-badge brutalist-badge--volt">
+              BRANCH: FEATURE/AURORA-GLASSMORPHISM
             </span>
-            <span className="text-micro" style={{ color: 'var(--text-muted)' }}>
-              Designed with <strong style={{ color: 'var(--accent)' }}>Aurora Glassmorphism</strong>
+            <span className="brutalist-badge brutalist-badge--cyan">
+              ENVIO: HYPERSYNC
             </span>
-            <span className="text-data text-micro" style={{ color: 'var(--success)' }}>
-              ● Operational
+            <span className="brutalist-badge brutalist-badge--purple">
+              ● 144+ FPS READY
             </span>
           </div>
         </footer>

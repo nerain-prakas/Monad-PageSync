@@ -1,65 +1,57 @@
 import { useState } from 'react';
 
 /**
- * 6.3 Analytics Chart Panel (ChartPanel)
- * - Glass panel with NO opaque background, allowing aurora orbs to shine through
- * - Series: 2px gradient strokes (violet, cyan) with round caps
- * - Translucent area fills fading to 0 opacity
- * - Hairline grid at rgba(255,255,255,0.08)
- * - Tooltip in .glass-panel-overlay
+ * Neo-Brutalist Analytics Chart Panel
+ * - Solid slab with 2px ink border & hard shadow
+ * - High-contrast bars with solid fills and 1.5px outlines
+ * - Dual mode: By Operation vs Batch Progression
  */
 export default function ChartPanel({ benchmark }) {
-  const [viewMode, setViewMode] = useState('ops'); // 'ops' | 'timeline'
+  const [viewMode, setViewMode] = useState('ops');
   const [hoveredIndex, setHoveredIndex] = useState(null);
 
-  // Operations data
   const opsData = [
     {
       name: 'PLACE',
       naive: benchmark?.naive?.place?.avg || 17350,
       pagesync: benchmark?.pagesync?.place?.avg || 12420,
-      description: 'New limit order insertion into book',
     },
     {
       name: 'UPDATE',
       naive: benchmark?.naive?.update?.avg || 9820,
       pagesync: benchmark?.pagesync?.update?.avg || 6950,
-      description: 'Order price or volume modification',
     },
     {
       name: 'CANCEL',
       naive: benchmark?.naive?.cancel?.avg || 8410,
       pagesync: benchmark?.pagesync?.cancel?.avg || 5890,
-      description: 'Removal and refund status flip',
     },
     {
       name: 'EXECUTE',
       naive: benchmark?.naive?.execute?.avg || 24600,
       pagesync: benchmark?.pagesync?.execute?.avg || 18100,
-      description: 'Cross-order fill and state settling',
     },
   ];
 
-  // Timeline progression data (10 batch workloads)
   const timelineData = [
-    { batch: 'Batch #1', naive: 17800, pagesync: 12550 },
-    { batch: 'Batch #2', naive: 17200, pagesync: 12380 },
-    { batch: 'Batch #3', naive: 18100, pagesync: 12490 },
-    { batch: 'Batch #4', naive: 17500, pagesync: 12210 },
-    { batch: 'Batch #5', naive: 18450, pagesync: 12600 },
-    { batch: 'Batch #6', naive: 17150, pagesync: 12150 },
-    { batch: 'Batch #7', naive: 17600, pagesync: 12420 },
-    { batch: 'Batch #8', naive: 18300, pagesync: 12350 },
-    { batch: 'Batch #9', naive: 17400, pagesync: 12290 },
-    { batch: 'Batch #10', naive: 17950, pagesync: 12480 },
+    { batch: 'B1', naive: 17800, pagesync: 12550 },
+    { batch: 'B2', naive: 17200, pagesync: 12380 },
+    { batch: 'B3', naive: 18100, pagesync: 12490 },
+    { batch: 'B4', naive: 17500, pagesync: 12210 },
+    { batch: 'B5', naive: 18450, pagesync: 12600 },
+    { batch: 'B6', naive: 17150, pagesync: 12150 },
+    { batch: 'B7', naive: 17600, pagesync: 12420 },
+    { batch: 'B8', naive: 18300, pagesync: 12350 },
+    { batch: 'B9', naive: 17400, pagesync: 12290 },
+    { batch: 'B10', naive: 17950, pagesync: 12480 },
   ];
 
   const currentDataset = viewMode === 'ops' ? opsData : timelineData;
   const maxGas = 28000;
   const svgWidth = 640;
   const svgHeight = 220;
-  const paddingLeft = 60;
-  const paddingRight = 24;
+  const paddingLeft = 50;
+  const paddingRight = 20;
   const paddingTop = 20;
   const paddingBottom = 34;
 
@@ -69,18 +61,11 @@ export default function ChartPanel({ benchmark }) {
   const getY = (val) => paddingTop + chartHeight - (val / maxGas) * chartHeight;
   const getX = (idx, total) => paddingLeft + (idx / (total - 1)) * chartWidth;
 
-  // Build points for timeline view
   const naivePoints = timelineData.map((d, i) => `${getX(i, timelineData.length)},${getY(d.naive)}`);
   const psPoints = timelineData.map((d, i) => `${getX(i, timelineData.length)},${getY(d.pagesync)}`);
 
-  const naiveLine = `M ${naivePoints.join(' L ')}`;
-  const psLine = `M ${psPoints.join(' L ')}`;
-
-  const naiveArea = `${naiveLine} L ${getX(timelineData.length - 1, timelineData.length)},${paddingTop + chartHeight} L ${paddingLeft},${paddingTop + chartHeight} Z`;
-  const psArea = `${psLine} L ${getX(timelineData.length - 1, timelineData.length)},${paddingTop + chartHeight} L ${paddingLeft},${paddingTop + chartHeight} Z`;
-
   return (
-    <div className="glass-panel analytics-chart-panel" style={{ padding: 'var(--space-5)', position: 'relative' }}>
+    <div className="brutalist-panel" style={{ padding: '20px' }}>
       {/* Header */}
       <div
         style={{
@@ -89,45 +74,39 @@ export default function ChartPanel({ benchmark }) {
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '12px',
-          marginBottom: 'var(--space-4)',
+          marginBottom: '16px',
+          borderBottom: '2px solid var(--border-color)',
+          paddingBottom: '12px',
         }}
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h3 className="text-heading">Gas Benchmark Diagnostics</h3>
-            <span className="glass-chip" style={{ fontSize: '0.72rem' }}>
-              <span className="glass-chip__dot glass-chip__dot--live" />
-              Real-time EVM Traces
+            <span className="brutalist-badge brutalist-badge--volt" style={{ fontSize: '0.65rem' }}>
+              EVM TRACES
             </span>
           </div>
-          <p className="text-micro" style={{ marginTop: '2px' }}>
-            Contiguous Monad 4KB PageSync locality vs Fragmented EVM Storage Slots
-          </p>
+          <span className="text-micro" style={{ color: 'var(--text-muted)' }}>
+            Contiguous Monad 4KB PageSync locality vs Fragmented EVM Slots
+          </span>
         </div>
 
         {/* View Toggle */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <div
-            className="glass-well"
-            style={{
-              padding: '3px',
-              display: 'inline-flex',
-              borderRadius: 'var(--radius-pill)',
-            }}
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            onClick={() => setViewMode('ops')}
+            className={`brutalist-btn ${viewMode === 'ops' ? 'brutalist-btn-volt' : ''}`}
+            style={{ padding: '4px 10px', fontSize: '0.72rem' }}
           >
-            <button
-              onClick={() => setViewMode('ops')}
-              className={`chart-mode-pill ${viewMode === 'ops' ? 'chart-mode-pill--active' : ''}`}
-            >
-              By Operation
-            </button>
-            <button
-              onClick={() => setViewMode('timeline')}
-              className={`chart-mode-pill ${viewMode === 'timeline' ? 'chart-mode-pill--active' : ''}`}
-            >
-              Batch Progression
-            </button>
-          </div>
+            By Operation
+          </button>
+          <button
+            onClick={() => setViewMode('timeline')}
+            className={`brutalist-btn ${viewMode === 'timeline' ? 'brutalist-btn-volt' : ''}`}
+            style={{ padding: '4px 10px', fontSize: '0.72rem' }}
+          >
+            Progression Batches
+          </button>
         </div>
       </div>
 
@@ -137,7 +116,7 @@ export default function ChartPanel({ benchmark }) {
           display: 'flex',
           alignItems: 'center',
           gap: '18px',
-          marginBottom: 'var(--space-3)',
+          marginBottom: '12px',
           flexWrap: 'wrap',
         }}
       >
@@ -145,34 +124,31 @@ export default function ChartPanel({ benchmark }) {
           <span
             style={{
               width: '12px',
-              height: '3px',
-              borderRadius: '2px',
-              background: 'var(--danger)',
-              boxShadow: '0 0 8px rgba(255, 107, 139, 0.6)',
+              height: '12px',
+              background: 'var(--accent-pink)',
+              border: '1.5px solid #000',
+              boxShadow: '1px 1px 0 #000',
             }}
           />
-          <span className="text-micro">Conventional (5 slots cold)</span>
+          <span className="text-micro">Conventional Mapping (5 slots)</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span
             style={{
               width: '12px',
-              height: '3px',
-              borderRadius: '2px',
-              background: 'linear-gradient(90deg, var(--accent), var(--accent-2))',
-              boxShadow: '0 0 8px rgba(34, 211, 238, 0.6)',
+              height: '12px',
+              background: 'var(--accent-volt)',
+              border: '1.5px solid #000',
+              boxShadow: '1px 1px 0 #000',
             }}
           />
-          <span className="text-micro" style={{ color: 'var(--accent-2)', fontWeight: 600 }}>
-            PageSync (2 slots packed warm)
+          <span className="text-micro" style={{ color: 'var(--accent-volt)' }}>
+            PageSync Packed (2 slots · -28.4% Gas)
           </span>
-        </div>
-        <div className="text-data text-micro" style={{ marginLeft: 'auto', color: 'var(--success)' }}>
-          Average Reduction: -28.4% Gas
         </div>
       </div>
 
-      {/* SVG Chart Surface (Transparent background) */}
+      {/* SVG Canvas */}
       <div style={{ position: 'relative', width: '100%', overflowX: 'auto' }}>
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
@@ -181,25 +157,7 @@ export default function ChartPanel({ benchmark }) {
           style={{ minWidth: '480px', display: 'block' }}
           onMouseLeave={() => setHoveredIndex(null)}
         >
-          <defs>
-            {/* Gradients */}
-            <linearGradient id="grad-ps-line" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="var(--accent)" />
-              <stop offset="100%" stopColor="var(--accent-2)" />
-            </linearGradient>
-
-            <linearGradient id="grad-ps-area" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="var(--accent-2)" stopOpacity="0.28" />
-              <stop offset="100%" stopColor="var(--accent-2)" stopOpacity="0.0" />
-            </linearGradient>
-
-            <linearGradient id="grad-naive-area" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="var(--danger)" stopOpacity="0.18" />
-              <stop offset="100%" stopColor="var(--danger)" stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
-
-          {/* Grid Hairlines (rgba(255,255,255,0.08)) */}
+          {/* Hairlines */}
           {[0, 7000, 14000, 21000, 28000].map((val) => {
             const y = getY(val);
             return (
@@ -209,7 +167,7 @@ export default function ChartPanel({ benchmark }) {
                   y1={y}
                   x2={svgWidth - paddingRight}
                   y2={y}
-                  stroke="rgba(255, 255, 255, 0.08)"
+                  stroke="var(--border-color)"
                   strokeWidth="1"
                   strokeDasharray={val === 0 ? 'none' : '3,3'}
                 />
@@ -220,6 +178,7 @@ export default function ChartPanel({ benchmark }) {
                   fill="var(--text-muted)"
                   fontSize="10"
                   fontFamily="var(--font-mono)"
+                  fontWeight="700"
                 >
                   {val === 0 ? '0' : `${val / 1000}k`}
                 </text>
@@ -227,13 +186,13 @@ export default function ChartPanel({ benchmark }) {
             );
           })}
 
-          {/* VIEW: By Operation (Bar Groups) */}
+          {/* Bar View */}
           {viewMode === 'ops' && (
             <g>
               {opsData.map((d, i) => {
                 const groupWidth = chartWidth / opsData.length;
                 const groupX = paddingLeft + i * groupWidth;
-                const barWidth = Math.min(28, groupWidth * 0.28);
+                const barWidth = Math.min(30, groupWidth * 0.32);
                 const gap = 6;
 
                 const naiveHeight = (d.naive / maxGas) * chartHeight;
@@ -250,7 +209,6 @@ export default function ChartPanel({ benchmark }) {
                     onMouseEnter={() => setHoveredIndex(i)}
                     style={{ cursor: 'pointer' }}
                   >
-                    {/* Hover column background */}
                     {isHovered && (
                       <rect
                         x={groupX + 4}
@@ -258,7 +216,6 @@ export default function ChartPanel({ benchmark }) {
                         width={groupWidth - 8}
                         height={chartHeight}
                         fill="rgba(255, 255, 255, 0.04)"
-                        rx="8"
                       />
                     )}
 
@@ -268,26 +225,22 @@ export default function ChartPanel({ benchmark }) {
                       y={naiveY}
                       width={barWidth}
                       height={naiveHeight}
-                      rx="4"
-                      fill="rgba(255, 107, 139, 0.85)"
-                      stroke="rgba(255, 107, 139, 0.9)"
-                      strokeWidth="1"
+                      fill="var(--accent-pink)"
+                      stroke="#000"
+                      strokeWidth="1.5"
                     />
 
-                    {/* PageSync Bar (Luminous Gradient) */}
+                    {/* PageSync Bar */}
                     <rect
                       x={groupX + groupWidth / 2 + gap / 2}
                       y={psY}
                       width={barWidth}
                       height={psHeight}
-                      rx="4"
-                      fill="url(#grad-ps-line)"
-                      stroke="rgba(34, 211, 238, 0.9)"
-                      strokeWidth="1"
-                      style={{ filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.35))' }}
+                      fill="var(--accent-volt)"
+                      stroke="#000"
+                      strokeWidth="1.5"
                     />
 
-                    {/* X-axis label */}
                     <text
                       x={groupX + groupWidth / 2}
                       y={svgHeight - 12}
@@ -295,7 +248,7 @@ export default function ChartPanel({ benchmark }) {
                       fill={isHovered ? 'var(--text-primary)' : 'var(--text-secondary)'}
                       fontSize="11"
                       fontFamily="var(--font-mono)"
-                      fontWeight={isHovered ? '600' : '400'}
+                      fontWeight="800"
                     >
                       {d.name}
                     </text>
@@ -305,153 +258,76 @@ export default function ChartPanel({ benchmark }) {
             </g>
           )}
 
-          {/* VIEW: Batch Progression (Smooth Curved Area Lines) */}
+          {/* Progression Line View */}
           {viewMode === 'timeline' && (
             <g>
-              {/* Naive Area & Line */}
-              <path d={naiveArea} fill="url(#grad-naive-area)" />
               <path
-                d={naiveLine}
+                d={`M ${naivePoints.join(' L ')}`}
                 fill="none"
-                stroke="var(--danger)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-
-              {/* PageSync Area & Line */}
-              <path d={psArea} fill="url(#grad-ps-area)" />
-              <path
-                d={psLine}
-                fill="none"
-                stroke="url(#grad-ps-line)"
+                stroke="var(--accent-pink)"
                 strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ filter: 'drop-shadow(0 0 8px rgba(34, 211, 238, 0.4))' }}
+              />
+              <path
+                d={`M ${psPoints.join(' L ')}`}
+                fill="none"
+                stroke="var(--accent-volt)"
+                strokeWidth="3"
               />
 
-              {/* Interactive Points */}
               {timelineData.map((d, i) => {
                 const x = getX(i, timelineData.length);
                 const yPs = getY(d.pagesync);
-                const isHovered = hoveredIndex === i;
-
                 return (
-                  <g
+                  <circle
                     key={d.batch}
-                    onMouseEnter={() => setHoveredIndex(i)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {isHovered && (
-                      <line
-                        x1={x}
-                        y1={paddingTop}
-                        x2={x}
-                        y2={paddingTop + chartHeight}
-                        stroke="var(--glass-border-strong)"
-                        strokeDasharray="2,2"
-                      />
-                    )}
-                    <circle
-                      cx={x}
-                      cy={yPs}
-                      r={isHovered ? 5.5 : 3.5}
-                      fill="var(--accent-2)"
-                      stroke="#0b0d1a"
-                      strokeWidth="2"
-                      style={{ filter: 'drop-shadow(0 0 8px var(--accent-2))' }}
-                    />
-                    <text
-                      x={x}
-                      y={svgHeight - 12}
-                      textAnchor="middle"
-                      fill={isHovered ? 'var(--text-primary)' : 'var(--text-muted)'}
-                      fontSize="10"
-                      fontFamily="var(--font-mono)"
-                    >
-                      B{i + 1}
-                    </text>
-                  </g>
+                    cx={x}
+                    cy={yPs}
+                    r="4"
+                    fill="var(--accent-volt)"
+                    stroke="#000"
+                    strokeWidth="1.5"
+                  />
                 );
               })}
             </g>
           )}
         </svg>
 
-        {/* Hover Tooltip Overlay in .glass-panel-overlay */}
+        {/* Tooltip Overlay */}
         {hoveredIndex !== null && currentDataset[hoveredIndex] && (
           <div
-            className="glass-panel-overlay"
+            className="brutalist-panel-raised"
             style={{
               position: 'absolute',
               top: '10px',
               right: '16px',
               padding: '10px 14px',
               pointerEvents: 'none',
-              animation: 'glassRise 0.2s ease-out',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              minWidth: '180px',
+              minWidth: '200px',
               zIndex: 10,
             }}
           >
             <div
               className="text-micro"
               style={{
-                fontWeight: 600,
+                fontWeight: 800,
                 color: 'var(--text-primary)',
-                borderBottom: '1px solid var(--glass-border)',
+                borderBottom: '1.5px solid var(--border-color)',
                 paddingBottom: '4px',
+                marginBottom: '4px',
               }}
             >
               {viewMode === 'ops'
-                ? `${opsData[hoveredIndex].name} OPERATION`
+                ? `OP::${opsData[hoveredIndex].name}`
                 : timelineData[hoveredIndex].batch}
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }} className="text-micro">
-                <span className="glass-chip__dot glass-chip__dot--danger" />
-                Conventional:
-              </span>
-              <span className="text-data" style={{ color: 'var(--danger)' }}>
-                {(currentDataset[hoveredIndex].naive).toLocaleString()} gas
-              </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ color: 'var(--accent-pink)' }}>Conventional:</span>
+              <strong>{(currentDataset[hoveredIndex].naive).toLocaleString()} gas</strong>
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }} className="text-micro">
-                <span className="glass-chip__dot glass-chip__dot--live" />
-                PageSync:
-              </span>
-              <span className="text-data" style={{ color: 'var(--accent-2)', fontWeight: 600 }}>
-                {(currentDataset[hoveredIndex].pagesync).toLocaleString()} gas
-              </span>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                paddingTop: '4px',
-                borderTop: '1px solid var(--glass-border)',
-              }}
-            >
-              <span className="text-micro" style={{ color: 'var(--text-muted)' }}>
-                Efficiency Gain:
-              </span>
-              <span className="text-data" style={{ color: 'var(--success)', fontWeight: 600 }}>
-                -(
-                {(
-                  ((currentDataset[hoveredIndex].naive - currentDataset[hoveredIndex].pagesync) /
-                    currentDataset[hoveredIndex].naive) *
-                  100
-                ).toFixed(1)}
-                %)
-              </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ color: 'var(--accent-volt)' }}>PageSync:</span>
+              <strong>{(currentDataset[hoveredIndex].pagesync).toLocaleString()} gas</strong>
             </div>
           </div>
         )}

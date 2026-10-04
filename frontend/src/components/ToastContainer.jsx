@@ -1,16 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 /**
- * 6.6 Toast Notifications (Toast)
- * - .glass-panel-raised capsule in top-right
- * - Colored 3px left accent and matching glow
- * - Slide-in motion and thin progress hairline timer
+ * Neo-Brutalist Toast Notifications
+ * - Solid slab with 2.5px ink border
+ * - Hard offset shadow: 4px 4px 0px #000
+ * - Sharp colored status tags
  */
 export default function ToastContainer({ toasts, onDismiss }) {
   if (!toasts || toasts.length === 0) return null;
 
   return (
-    <aside aria-label="Notifications" className="toast-container" style={{ position: 'fixed', top: '24px', right: '24px', zIndex: 'var(--z-toast)', display: 'flex', flexDirection: 'column', gap: '12px', pointerEvents: 'none', maxWidth: '380px', width: 'calc(100vw - 48px)' }}>
+    <aside
+      aria-label="Notifications"
+      style={{
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        zIndex: 300,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+        pointerEvents: 'none',
+        maxWidth: '380px',
+        width: 'calc(100vw - 40px)',
+      }}
+    >
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
       ))}
@@ -19,46 +33,32 @@ export default function ToastContainer({ toasts, onDismiss }) {
 }
 
 function ToastItem({ toast, onDismiss }) {
-  const [progress, setProgress] = useState(100);
-  const duration = toast.duration || 4500;
+  const duration = toast.duration || 4000;
 
   useEffect(() => {
-    const startTime = Date.now();
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
-      setProgress(remaining);
-      if (elapsed >= duration) {
-        clearInterval(interval);
-        onDismiss(toast.id);
-      }
-    }, 50);
-
-    return () => clearInterval(interval);
+    const timer = setTimeout(() => {
+      onDismiss(toast.id);
+    }, duration);
+    return () => clearTimeout(timer);
   }, [toast.id, duration, onDismiss]);
 
   const type = toast.type || 'info';
-  const accentColor =
+  const badgeClass =
     type === 'success'
-      ? 'var(--success)'
+      ? 'brutalist-badge--volt'
       : type === 'warning'
-      ? 'var(--warning)'
-      : type === 'danger'
-      ? 'var(--danger)'
-      : 'var(--accent-2)';
+      ? 'brutalist-badge--pink'
+      : 'brutalist-badge--cyan';
 
   return (
     <div
       role="status"
-      className="glass-panel-raised toast-item"
       style={{
         pointerEvents: 'auto',
-        position: 'relative',
-        overflow: 'hidden',
+        background: 'var(--bg-surface)',
+        border: 'var(--border-thick) solid var(--border-color)',
+        boxShadow: 'var(--shadow-hard-lg)',
         padding: '12px 16px',
-        borderLeft: `3px solid ${accentColor}`,
-        boxShadow: `0 8px 32px rgba(0,0,0,0.3), 0 0 24px color-mix(in srgb, ${accentColor} 30%, transparent)`,
-        animation: 'toastSlideIn 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -66,19 +66,15 @@ function ToastItem({ toast, onDismiss }) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <span
-          className="glass-chip__dot"
-          style={{
-            background: accentColor,
-            boxShadow: `0 0 10px ${accentColor}`,
-          }}
-        />
+        <span className={`brutalist-badge ${badgeClass}`} style={{ fontSize: '0.65rem' }}>
+          {type.toUpperCase()}
+        </span>
         <div>
-          <div className="text-heading" style={{ fontSize: '0.875rem' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', fontWeight: 800 }}>
             {toast.title}
           </div>
           {toast.message && (
-            <div className="text-micro" style={{ color: 'var(--text-secondary)' }}>
+            <div style={{ fontFamily: 'var(--font-ui)', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
               {toast.message}
             </div>
           )}
@@ -87,35 +83,19 @@ function ToastItem({ toast, onDismiss }) {
 
       <button
         onClick={() => onDismiss(toast.id)}
-        aria-label="Dismiss toast"
+        aria-label="Dismiss"
         style={{
           background: 'transparent',
           border: 'none',
-          color: 'var(--text-muted)',
+          color: 'var(--text-primary)',
           cursor: 'pointer',
+          fontWeight: 800,
+          fontSize: '14px',
           padding: '4px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '16px',
         }}
       >
         ✕
       </button>
-
-      {/* Progress hairline */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          height: '2px',
-          width: `${progress}%`,
-          background: accentColor,
-          opacity: 0.8,
-          transition: 'width 0.05s linear',
-        }}
-      />
     </div>
   );
 }

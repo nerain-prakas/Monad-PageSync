@@ -1,63 +1,55 @@
-/* 🔮 Aurora Design System & Styleguide Tokens (CSS Variables) */
+/* ⚡ Neo-Brutalist Design System for Monad-PageSync ⚡ */
 
-:root, [data-theme="aurora"] {
-  /* Backdrop — the scene behind the glass */
-  --bg-base:              #0b0d1a;
-  --bg-gradient:          radial-gradient(1200px 800px at 15% 10%, #1d1b4b 0%, transparent 60%),
-                          radial-gradient(1000px 700px at 85% 20%, #0f3a4a 0%, transparent 60%),
-                          radial-gradient(900px 900px at 50% 100%, #3b1550 0%, transparent 60%),
-                          var(--bg-base);
+:root, [data-theme="brutalist-dark"] {
+  /* Canvas & Slabs */
+  --bg-canvas:            #0a0b10;
+  --bg-surface:           #13141f;
+  --bg-surface-raised:    #1b1c2b;
+  --bg-well:              #07080d;
+  
+  /* Ink & Borders */
+  --border-color:         #2d3148;
+  --border-strong:        #836ef9;
+  --border-ink:           #000000;
+  --border-width:         2px;
+  --border-thick:         3px;
+  
+  /* Hard Offset Shadows (Zero Blur, High Tactility) */
+  --shadow-hard-sm:       2px 2px 0px #000000;
+  --shadow-hard:          4px 4px 0px #000000;
+  --shadow-hard-lg:       6px 6px 0px #000000;
+  --shadow-hard-accent:   4px 4px 0px #836ef9;
+  --shadow-hard-cyan:     4px 4px 0px #00f0ff;
+  
+  /* Typography Colors */
+  --text-primary:         #ffffff;
+  --text-secondary:       #c2c6dc;
+  --text-muted:           #787e9e;
+  --text-inverse:         #000000;
 
-  /* Luminous Orbs — blurred color sources behind panes */
-  --orb-violet:           #7c5cff;
-  --orb-cyan:             #22d3ee;
-  --orb-pink:             #ff5fa2;
-  --orb-amber:            #ffb454;
+  /* Saturated High-Impact Accents */
+  --accent-purple:        #836ef9;       /* Monad purple */
+  --accent-cyan:          #00f0ff;       /* Cyber cyan */
+  --accent-volt:          #bef264;       /* Acid lime */
+  --accent-pink:          #ff2a85;       /* Hot magenta */
+  --accent-amber:         #fbbf24;       /* Warning yellow */
+  
+  --success:              #22c55e;
+  --warning:              #fbbf24;
+  --danger:               #ff3366;
+  --info:                 #00f0ff;
 
-  /* Glass Surfaces — translucent white tints */
-  --glass-1:              rgba(255, 255, 255, 0.06);   /* Base pane */
-  --glass-2:              rgba(255, 255, 255, 0.10);   /* Raised pane */
-  --glass-3:              rgba(255, 255, 255, 0.16);   /* Top layer: modals, popovers */
-  --glass-well:           rgba(0, 0, 0, 0.22);         /* Recessed: inputs, logs */
+  /* Typography Scales */
+  --font-display:         'Sora', -apple-system, sans-serif;
+  --font-ui:              'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:            'JetBrains Mono', Consolas, monospace;
 
-  /* Glass Edges */
-  --glass-border:         rgba(255, 255, 255, 0.18);
-  --glass-border-strong:  rgba(255, 255, 255, 0.32);
-  --glass-highlight:      inset 0 1px 0 rgba(255, 255, 255, 0.35);   /* Top-edge light catch */
-
-  /* Blur & Saturation (High FPS Optimized) */
-  --blur-sm:              blur(6px) saturate(130%);
-  --blur-md:              blur(12px) saturate(140%);
-  --blur-lg:              blur(16px) saturate(150%);
-
-  /* Shadows — soft, diffuse, colored by depth not by light source */
-  --shadow-1:             0 4px 16px rgba(0, 0, 0, 0.25);
-  --shadow-2:             0 12px 40px rgba(0, 0, 0, 0.35);
-  --shadow-3:             0 24px 80px rgba(0, 0, 0, 0.45);
-
-  /* Text */
-  --text-primary:         rgba(255, 255, 255, 0.95);
-  --text-secondary:       rgba(255, 255, 255, 0.70);
-  --text-muted:           rgba(255, 255, 255, 0.50);
-
-  /* Semantic Accents */
-  --accent:               #8b7bff;       /* Primary — violet */
-  --accent-2:             #22d3ee;       /* Secondary — cyan */
-  --success:              #34e3a0;
-  --warning:              #ffc15e;
-  --danger:               #ff6b8b;
-  --info:                 #5ec8ff;
-
-  /* Radius */
-  --radius-sm:            12px;
-  --radius-md:            20px;
-  --radius-lg:            28px;
+  /* Corners */
+  --radius-none:          0px;
+  --radius-xs:            2px;
+  --radius-sm:            4px;
+  --radius-md:            6px;
   --radius-pill:          999px;
-
-  /* Typography */
-  --font-display:         'Sora', sans-serif;
-  --font-ui:              'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono:            'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 
   /* Spacing */
   --space-1: 4px;
@@ -67,42 +59,35 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
-  --space-8: 72px;
-
-  /* Z-Index Hierarchy */
-  --z-scene:   -1;    /* backdrop & orbs */
-  --z-base:     0;
-  --z-raised:  10;
-  --z-nav:     50;
-  --z-overlay: 100;
-  --z-toast:   200;
 }
 
-[data-theme="aurora-light"] {
-  --bg-base:              #eef1ff;
-  --bg-gradient:          radial-gradient(1200px 800px at 15% 10%, #d9d4ff 0%, transparent 60%),
-                          radial-gradient(1000px 700px at 85% 20%, #c9f1ff 0%, transparent 60%),
-                          radial-gradient(900px 900px at 50% 100%, #ffd9ec 0%, transparent 60%),
-                          var(--bg-base);
-  --glass-1:              rgba(255, 255, 255, 0.45);
-  --glass-2:              rgba(255, 255, 255, 0.62);
-  --glass-3:              rgba(255, 255, 255, 0.78);
-  --glass-well:           rgba(20, 20, 60, 0.06);
-  --glass-border:         rgba(255, 255, 255, 0.70);
-  --glass-border-strong:  rgba(255, 255, 255, 0.95);
-  --glass-highlight:      inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --shadow-1:             0 4px 16px rgba(60, 60, 120, 0.10);
-  --shadow-2:             0 12px 40px rgba(60, 60, 120, 0.16);
-  --shadow-3:             0 24px 80px rgba(60, 60, 120, 0.22);
-  --text-primary:         #14142b;
-  --text-secondary:       rgba(20, 20, 43, 0.72);
-  --text-muted:           rgba(20, 20, 43, 0.52);
-  --accent:               #7461fa;
-  --accent-2:             #06b6d4;
-  --success:              #10b981;
-  --warning:              #f59e0b;
-  --danger:               #ef4444;
-  --info:                 #3b82f6;
+/* Light Brutalism (Stark Paper & Bold Ink) */
+[data-theme="brutalist-light"] {
+  --bg-canvas:            #f5f3ec;
+  --bg-surface:           #ffffff;
+  --bg-surface-raised:    #fdfbf7;
+  --bg-well:              #ebe7dc;
+  
+  --border-color:         #000000;
+  --border-strong:        #000000;
+  --border-ink:           #000000;
+  
+  --shadow-hard-sm:       2px 2px 0px #000000;
+  --shadow-hard:          4px 4px 0px #000000;
+  --shadow-hard-lg:       6px 6px 0px #000000;
+  --shadow-hard-accent:   4px 4px 0px #000000;
+  --shadow-hard-cyan:     4px 4px 0px #000000;
+  
+  --text-primary:         #000000;
+  --text-secondary:       #262626;
+  --text-muted:           #525252;
+  --text-inverse:         #ffffff;
+  
+  --accent-purple:        #7461fa;
+  --accent-cyan:          #0284c7;
+  --accent-volt:          #84cc16;
+  --accent-pink:          #e11d48;
+  --accent-amber:         #d97706;
 }
 
 /* ── Global Reset ─────────────────────────────────────────────────────────── */
@@ -114,545 +99,283 @@
 
 html {
   min-height: 100%;
-  background-color: #0b0d1a;
+  background-color: var(--bg-canvas);
 }
 
 body {
   min-height: 100vh;
   margin: 0;
   padding: 0;
-  background-color: var(--bg-base);
+  background-color: var(--bg-canvas);
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
   overflow-x: hidden;
+}
+
+[data-theme="brutalist-light"] body {
+  background-image: 
+    linear-gradient(to right, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
 }
 
 #root {
   min-height: 100vh;
   position: relative;
-  z-index: 1;
   display: flex;
   flex-direction: column;
 }
 
-/* ── Hardware Accelerated Aurora Scene (Zero Repaint on Scroll) ───────────── */
-.aurora-scene {
-  position: fixed;
-  inset: 0;
-  background-color: var(--bg-base);
-  background-image:
-    radial-gradient(1200px 800px at 15% 10%, rgba(29, 27, 75, 0.72) 0%, transparent 65%),
-    radial-gradient(1000px 700px at 85% 20%, rgba(15, 58, 74, 0.72) 0%, transparent 65%),
-    linear-gradient(to bottom, rgba(11, 13, 26, 0.65) 0%, rgba(11, 13, 26, 0.88) 100%),
-    url('/aurora_wallpaper.jpg');
-  background-position: center top;
-  background-size: cover;
-  background-repeat: no-repeat;
-  overflow: hidden;
-  z-index: 0;
-  pointer-events: none;
-  transform: translateZ(0);
-  will-change: transform;
-}
-
-[data-theme="aurora-light"] .aurora-scene {
-  background-color: #eef1ff;
-  background-image:
-    radial-gradient(1200px 800px at 15% 10%, rgba(217, 212, 255, 0.82) 0%, transparent 65%),
-    radial-gradient(1000px 700px at 85% 20%, rgba(201, 241, 255, 0.82) 0%, transparent 65%),
-    linear-gradient(to bottom, rgba(238, 241, 255, 0.75) 0%, rgba(238, 241, 255, 0.92) 100%),
-    url('/aurora_wallpaper.jpg');
-}
-
-/* ── Typography Classes ───────────────────────────────────────────────────── */
+/* ── Brutalist Typography ─────────────────────────────────────────────────── */
 .text-display-xl {
   font-family: var(--font-display);
-  font-size: clamp(2.5rem, 5.5vw, 4rem);
+  font-size: clamp(2.2rem, 5vw, 3.6rem);
   line-height: 1.05;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.03em;
+  text-transform: uppercase;
   color: var(--text-primary);
 }
 
 .text-display-md {
   font-family: var(--font-display);
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
-  line-height: 1.15;
-  font-weight: 600;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  line-height: 1.1;
+  font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
 .text-heading {
-  font-family: var(--font-ui);
-  font-size: 1.125rem;
-  line-height: 1.35;
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  line-height: 1.3;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--text-primary);
 }
 
 .text-body {
   font-family: var(--font-ui);
   font-size: 0.9375rem;
-  line-height: 1.65;
-  font-weight: 400;
+  line-height: 1.6;
+  font-weight: 500;
   color: var(--text-secondary);
-  max-width: 66ch;
-  text-wrap: pretty;
+  max-width: 68ch;
 }
 
 .text-data {
   font-family: var(--font-mono);
   font-size: 0.8125rem;
-  line-height: 1.45;
-  font-weight: 500;
+  line-height: 1.4;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .text-micro {
-  font-family: var(--font-ui);
-  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
   line-height: 1.3;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
-/* Gradient Text: signature treatment (one hero element per view) */
-.text-gradient {
-  background: linear-gradient(120deg, #ffffff 0%, #b8a9ff 45%, #5ee1ff 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+/* High-Contrast Bold Text Highlight */
+.text-highlight {
+  background: var(--accent-purple);
+  color: #ffffff;
+  padding: 0 6px;
+  display: inline-block;
+  border: 1px solid var(--border-ink);
+  box-shadow: 2px 2px 0px var(--border-ink);
 }
 
-[data-theme="aurora-light"] .text-gradient {
-  background: linear-gradient(120deg, #1d1b4b 0%, #6355d8 50%, #0284c7 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
+/* ── Brutalist Surface Architecture ───────────────────────────────────────── */
 
-/* ── Luminous Drifting Orbs (Pre-blurred GPU Radial Ramps) ─────────────────── */
-.aurora-orb {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  opacity: 0.45;
-  mix-blend-mode: screen;
-  will-change: transform;
-  transform: translate3d(0, 0, 0);
-}
-
-.aurora-orb--violet {
-  width: 520px;
-  height: 520px;
-  background: radial-gradient(circle, rgba(124, 92, 255, 0.45) 0%, rgba(124, 92, 255, 0.12) 45%, transparent 70%);
-  top: -120px;
-  left: -80px;
-  animation: orbDrift 28s ease-in-out infinite;
-}
-
-.aurora-orb--cyan {
-  width: 480px;
-  height: 480px;
-  background: radial-gradient(circle, rgba(34, 211, 238, 0.45) 0%, rgba(34, 211, 238, 0.12) 45%, transparent 70%);
-  top: 25%;
-  right: -120px;
-  animation: orbDrift 34s ease-in-out infinite reverse;
-}
-
-.aurora-orb--pink {
-  width: 440px;
-  height: 440px;
-  background: radial-gradient(circle, rgba(255, 95, 162, 0.45) 0%, rgba(255, 95, 162, 0.12) 45%, transparent 70%);
-  bottom: -140px;
-  left: 28%;
-  animation: orbDrift 40s ease-in-out infinite;
-}
-
-.aurora-orb--amber {
-  width: 360px;
-  height: 360px;
-  background: radial-gradient(circle, rgba(255, 180, 84, 0.35) 0%, rgba(255, 180, 84, 0.08) 45%, transparent 70%);
-  top: 55%;
-  left: 55%;
-  animation: orbDrift 45s ease-in-out infinite reverse;
-}
-
-/* ── Glass Surface Architecture ───────────────────────────────────────────── */
-
-/* 4.1 Base Glass Panel */
-.glass-panel {
-  background: var(--glass-1);
-  -webkit-backdrop-filter: var(--blur-md);
-  backdrop-filter: var(--blur-md);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-highlight), var(--shadow-1);
-  contain: content;
-}
-
-/* 4.2 Raised Glass Panel */
-.glass-panel-raised {
-  background: var(--glass-2);
-  -webkit-backdrop-filter: var(--blur-md);
-  backdrop-filter: var(--blur-md);
-  border: 1px solid var(--glass-border-strong);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-highlight), var(--shadow-2);
-  contain: content;
-}
-
-/* 4.3 Top-Layer Glass Overlay */
-.glass-panel-overlay {
-  background: var(--glass-3);
-  -webkit-backdrop-filter: var(--blur-lg);
-  backdrop-filter: var(--blur-lg);
-  border: 1px solid var(--glass-border-strong);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--glass-highlight), var(--shadow-3);
-}
-
-/* 4.4 Recessed Well */
-.glass-well {
-  background: var(--glass-well);
-  border: 1px solid var(--glass-border);
+/* Solid Brutalist Panel */
+.brutalist-panel {
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border-color);
   border-radius: var(--radius-sm);
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-hard);
+  position: relative;
+}
+
+.brutalist-panel-raised {
+  background: var(--bg-surface-raised);
+  border: var(--border-thick) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-hard-accent);
+}
+
+/* Recessed Well / Terminal Area */
+.brutalist-well {
+  background: var(--bg-well);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-xs);
   color: var(--text-primary);
   padding: 10px 14px;
 }
 
-.glass-well:focus-within {
-  border-color: var(--accent);
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(139, 123, 255, 0.35);
+.brutalist-well:focus-within {
+  border-color: var(--accent-cyan);
+  outline: none;
 }
 
-/* 4.5 Glass Chip / Badge (Nested-friendly, no redundant backdrop-filter) */
-.glass-chip {
+/* Brutalist Badge / Tag */
+.brutalist-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-ui);
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  transition: all 0.15s ease;
+  padding: 3px 8px;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-hard-sm);
 }
 
-.glass-chip__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--success);
-  box-shadow: 0 0 8px var(--success);
-  flex-shrink: 0;
+.brutalist-badge--purple {
+  background: var(--accent-purple);
+  color: #ffffff;
+  border-color: var(--border-ink);
 }
 
-.glass-chip__dot--live {
-  background: var(--success);
-  animation: statusPulse 2s ease-out infinite;
+.brutalist-badge--volt {
+  background: var(--accent-volt);
+  color: #000000;
+  border-color: var(--border-ink);
 }
 
-.glass-chip__dot--warning {
-  background: var(--warning);
-  box-shadow: 0 0 8px var(--warning);
+.brutalist-badge--cyan {
+  background: var(--accent-cyan);
+  color: #000000;
+  border-color: var(--border-ink);
 }
 
-.glass-chip__dot--danger {
-  background: var(--danger);
-  box-shadow: 0 0 8px var(--danger);
+.brutalist-badge--pink {
+  background: var(--accent-pink);
+  color: #ffffff;
+  border-color: var(--border-ink);
 }
 
-.glass-chip__dot--accent {
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
-}
+/* ── Snappy Brutalist Buttons ─────────────────────────────────────────────── */
 
-/* 4.6 Gradient Border (signature accent) */
-.glass-gradient-border {
-  position: relative;
-  border-radius: var(--radius-md);
-}
-
-.glass-gradient-border::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  border-radius: inherit;
-  background: linear-gradient(135deg, rgba(139,123,255,0.9), rgba(34,211,238,0.6), rgba(255,95,162,0.7));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* ── Interactive & Motion System ──────────────────────────────────────────── */
-
-/* 5.1 Card Hover Lift */
-.card-hover {
-  position: relative;
-  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-              background 0.3s ease,
-              border-color 0.3s ease,
-              box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
-}
-
-.card-hover:hover {
-  transform: translateY(-4px);
-  background: var(--glass-2);
-  border-color: var(--glass-border-strong);
-  box-shadow: var(--glass-highlight), var(--shadow-2);
-}
-
-.card-hover:active {
-  transform: translateY(-1px) scale(0.995);
-  box-shadow: var(--glass-highlight), var(--shadow-1);
-}
-
-/* Cursor Sheen Effect */
-.card-sheen {
-  position: relative;
-  overflow: hidden;
-}
-
-.card-sheen::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(280px circle at var(--mx, 50%) var(--my, 0%),
-              rgba(255, 255, 255, 0.14), transparent 60%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-
-.card-sheen:hover::after {
-  opacity: 1;
-}
-
-/* 5.2 Buttons */
-
-/* Secondary Glass Button */
-.glass-button {
+.brutalist-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: var(--glass-1);
-  -webkit-backdrop-filter: var(--blur-sm);
-  backdrop-filter: var(--blur-sm);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-pill);
-  box-shadow: var(--glass-highlight);
+  background: var(--bg-surface-raised);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-xs);
+  box-shadow: var(--shadow-hard);
   color: var(--text-primary);
-  padding: 9px 18px;
-  font-family: var(--font-ui);
-  font-size: 0.875rem;
-  font-weight: 500;
+  padding: 8px 18px;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   cursor: pointer;
   text-decoration: none;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
   user-select: none;
 }
 
-.glass-button:hover {
-  background: var(--glass-2);
-  border-color: var(--glass-border-strong);
-  transform: translateY(-1px);
+.brutalist-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-hard-lg);
+  border-color: var(--accent-cyan);
+  background: var(--bg-surface);
 }
 
-.glass-button:active {
-  transform: scale(0.97);
+.brutalist-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--shadow-hard-sm);
 }
 
-/* Primary Accent Button */
-.glass-button-primary {
+/* Primary High-Impact Button */
+.brutalist-btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: linear-gradient(135deg, #8b7bff 0%, #5b8cff 100%);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: var(--radius-pill);
+  background: var(--accent-purple);
+  border: var(--border-thick) solid #000000;
+  border-radius: var(--radius-xs);
+  box-shadow: var(--shadow-hard);
   color: #ffffff;
   padding: 10px 22px;
-  font-family: var(--font-ui);
+  font-family: var(--font-mono);
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   cursor: pointer;
   text-decoration: none;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4),
-              0 8px 28px rgba(139, 123, 255, 0.45);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
   user-select: none;
 }
 
-.glass-button-primary:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5),
-              0 12px 36px rgba(139, 123, 255, 0.6);
+.brutalist-btn-primary:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-hard-lg);
+  background: #9482ff;
 }
 
-.glass-button-primary:active {
-  transform: scale(0.97);
+.brutalist-btn-primary:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--shadow-hard-sm);
 }
 
-/* Danger Button */
-.glass-button-danger {
-  background: rgba(255, 107, 139, 0.16);
-  border: 1px solid rgba(255, 107, 139, 0.5);
-  color: var(--danger);
-  border-radius: var(--radius-pill);
-  padding: 8px 16px;
-  font-weight: 500;
-  cursor: pointer;
+.brutalist-btn-volt {
+  background: var(--accent-volt);
+  color: #000000;
+  border: var(--border-thick) solid #000000;
 }
 
-.glass-button-danger:hover {
-  background: rgba(255, 107, 139, 0.26);
+.brutalist-btn-volt:hover {
+  background: #d9f99d;
+  box-shadow: var(--shadow-hard-lg);
 }
 
-/* Disabled */
-.glass-button:disabled,
-.glass-button-primary:disabled {
-  opacity: 0.45;
-  filter: saturate(0.6);
-  cursor: not-allowed;
-  box-shadow: none;
-  transform: none;
-}
-
-/* Non-negotiable Focus-Visible */
-.glass-button:focus-visible,
-.glass-button-primary:focus-visible,
-.card-hover:focus-visible,
-input:focus-visible,
+/* Focus Visibility */
 button:focus-visible,
+input:focus-visible,
 a:focus-visible {
-  outline: 2px solid var(--accent-2);
-  outline-offset: 3px;
+  outline: 3px solid var(--accent-cyan) !important;
+  outline-offset: 2px !important;
 }
 
-/* ── Keyframe Animations ─────────────────────────────────────────────────── */
-@keyframes orbDrift {
-  0%   { transform: translate3d(0, 0, 0) scale(1); }
-  50%  { transform: translate3d(45px, -35px, 0) scale(1.08); }
-  100% { transform: translate3d(0, 0, 0) scale(1); }
-}
-
-@keyframes glassRise {
-  from {
-    opacity: 0;
-    transform: translateY(16px) scale(0.98);
-    filter: blur(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
-  }
-}
-
-.glass-enter {
-  animation: glassRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes shimmer {
-  from { background-position: -200% 0; }
-  to   { background-position:  200% 0; }
-}
-
-.glass-skeleton {
-  background: linear-gradient(90deg, var(--glass-1) 25%, var(--glass-2) 50%, var(--glass-1) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.6s linear infinite;
-  border-radius: var(--radius-sm);
-}
-
-@keyframes statusPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 227, 160, 0.6); }
-  50%      { box-shadow: 0 0 0 9px rgba(52, 227, 160, 0); }
-}
-
-@keyframes toastSlideIn {
-  from {
-    transform: translateX(110%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes pulseGlow {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50%      { opacity: 1; transform: scale(1.04); }
-}
-
-/* ── Fallbacks for Browsers without backdrop-filter ───────────────────────── */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass-panel         { background: rgba(18, 20, 38, 0.94); }
-  .glass-panel-raised  { background: rgba(28, 30, 56, 0.96); }
-  .glass-panel-overlay { background: rgba(36, 38, 70, 0.98); }
-}
-
-/* ── Accessibility Overrides ──────────────────────────────────────────────── */
-@media (prefers-contrast: more) {
-  :root, [data-theme="aurora"] {
-    --glass-border: rgba(255, 255, 255, 0.55);
-    --glass-1: rgba(255, 255, 255, 0.14);
-    --text-secondary: rgba(255, 255, 255, 0.9);
-  }
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .glass-panel         { background: rgba(20, 22, 42, 0.98); backdrop-filter: none; -webkit-backdrop-filter: none; }
-  .glass-panel-raised  { background: rgba(28, 30, 56, 0.98); backdrop-filter: none; -webkit-backdrop-filter: none; }
-  .glass-panel-overlay { background: rgba(36, 38, 70, 0.98); backdrop-filter: none; -webkit-backdrop-filter: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .aurora-orb, .glass-enter, .glass-skeleton, .glass-chip__dot--live {
-    animation: none !important;
-  }
-  .card-hover, .glass-button, .glass-button-primary {
-    transition: none !important;
-  }
-}
-
-/* ── Custom Scrollbar ─────────────────────────────────────────────────────── */
+/* ── Custom Brutalist Scrollbar ───────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--bg-well);
+  border-left: 1px solid var(--border-color);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: content-box;
+  background: var(--border-color);
+  border: 2px solid var(--bg-well);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.32);
-  border: 2px solid transparent;
-  background-clip: content-box;
+  background: var(--accent-purple);
 }
