@@ -8,6 +8,7 @@ import ToastContainer from './components/ToastContainer';
 import EnvioTables from './components/EnvioTables';
 import ArchitectureExplainer from './components/ArchitectureExplainer';
 import Navbar from './components/Navbar';
+import DynamicBackground from './components/DynamicBackground';
 import { api } from './api';
 import './App.css';
 
@@ -273,6 +274,9 @@ export default function App() {
 
   return (
     <>
+      {/* ── Dynamic Cyber-Brutalist Telemetry Background ─────────────────────── */}
+      <DynamicBackground theme={theme} />
+
       {/* ── Brutalist Sticky Header ─────────────────────────────────────────── */}
       <Navbar
         mode={mode}
