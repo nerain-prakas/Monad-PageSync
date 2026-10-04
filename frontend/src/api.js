@@ -18,4 +18,5 @@ export const api = {
   addresses: () => get('/addresses'),
   orders:    (limit = 20) => get(`/orders?limit=${limit}`),
   trades:    (limit = 20) => get(`/trades?limit=${limit}`),
+  order:     id => get(`/orders/${encodeURIComponent(id)}`),
 };

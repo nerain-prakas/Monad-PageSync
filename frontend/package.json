@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "node -e \"console.log('No frontend test suite configured')\"",
     "lint": "oxlint",
     "preview": "vite preview"
   },
