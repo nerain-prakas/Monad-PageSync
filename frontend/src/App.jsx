@@ -235,6 +235,14 @@ export default function App() {
       onSelect: handleThemeToggle,
     },
     {
+      id: 'jump-metrics',
+      title: 'Jump to Key Performance Indicators',
+      description: 'Inspect gas savings and throughput metrics',
+      category: 'Navigation',
+      icon: '📈',
+      onSelect: () => document.getElementById('metrics')?.scrollIntoView({ behavior: 'smooth' }),
+    },
+    {
       id: 'jump-viewport',
       title: 'Jump to 3D Memory Viewport',
       description: 'Navigate to interactive WebGL storage page frame',
@@ -309,34 +317,56 @@ export default function App() {
 
       {/* ── Main Application Shell ─────────────────────────────────────────── */}
       <main className="app">
-        {/* ── Hero Section ─────────────────────────────────────────────────── */}
-        <section className="hero-section glass-enter">
+        {/* ── Hero Command Panel ─────────────────────────────────────────────── */}
+        <section className="glass-panel hero-panel glass-enter">
           <div className="hero-title-area">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="glass-chip" style={{ fontSize: '0.72rem', padding: '3px 10px' }}>
+                <span className="glass-chip__dot glass-chip__dot--live" />
+                MONAD STORAGE LOCALITY BENCHMARK
+              </span>
+              <span className="glass-chip" style={{ fontSize: '0.72rem', padding: '3px 10px', color: 'var(--accent-2)' }}>
+                4KB / 128 SLOTS
+              </span>
+            </div>
+
             {/* The single signature .text-gradient element per view */}
             <h1 className="text-display-xl text-gradient">
               Page-Aware Storage Locality on Monad
             </h1>
-            <p className="text-body">
+
+            <p className="text-body" style={{ fontSize: '0.98rem' }}>
               Explore how contiguous <strong>4KB MonadDB storage page packing</strong> eliminates
-              asynchronous disk I/O penalties. Visualized in real time with frosted glassmorphism
+              asynchronous SSD disk I/O penalties. Visualized in real time with frosted glassmorphism
               and indexed via Envio HyperSync.
             </p>
+
+            <div className="hero-badges-row">
+              <span className="glass-chip">
+                <span className="glass-chip__dot glass-chip__dot--live" />
+                128 Slots / Page
+              </span>
+              <span className="glass-chip">
+                <span className="glass-chip__dot glass-chip__dot--accent" />
+                -28.4% Gas Overhead
+              </span>
+              <span className="glass-chip">
+                <span className="glass-chip__dot glass-chip__dot--warning" />
+                Async MonadDB SSD
+              </span>
+              <span className="glass-chip">
+                <span className="glass-chip__dot glass-chip__dot--live" />
+                Envio HyperSync Active
+              </span>
+            </div>
           </div>
 
-          <div className="hero-badges-row">
-            <span className="glass-chip">
-              <span className="glass-chip__dot glass-chip__dot--live" />
-              128 Slots / Page
-            </span>
-            <span className="glass-chip">
-              <span className="glass-chip__dot glass-chip__dot--accent" />
-              -28.4% Gas Overhead
-            </span>
-            <span className="glass-chip">
-              <span className="glass-chip__dot glass-chip__dot--warning" />
-              Async MonadDB SSD
-            </span>
-            <div style={{ marginLeft: '6px' }}>
+          {/* Quick Action Control Box */}
+          <div className="glass-well hero-control-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="text-micro" style={{ textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-2)' }}>
+                Active Benchmark Mode
+              </span>
               <GlassSwitch
                 id="auto-refresh-toggle"
                 checked={autoRefresh}
@@ -344,103 +374,187 @@ export default function App() {
                 label="Auto-Sync"
               />
             </div>
-          </div>
-        </section>
 
-        {/* ── 3D Storage Viewport Section (#viewport) ──────────────────────── */}
-        <section id="viewport" className="glass-panel viewport-card glass-enter">
-          {/* Top Left Overlay Controls */}
-          <div className="viewport-overlay-controls">
-            <div className="glass-panel" style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="text-micro" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                3D STORAGE PAGE VISUALIZER
-              </span>
-              <span className="glass-chip" style={{ fontSize: '0.68rem', padding: '1px 8px' }}>
-                {mode === 'pagesync' ? 'Contiguous Packed Mode' : 'Fragmented Mapping'}
-              </span>
+            <div
+              className="glass-well"
+              style={{
+                padding: '4px',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '4px',
+                borderRadius: 'var(--radius-pill)',
+              }}
+            >
+              <button
+                onClick={() => handleModeChange('pagesync')}
+                className={`chart-mode-pill ${mode === 'pagesync' ? 'chart-mode-pill--active' : ''}`}
+                style={{ textAlign: 'center', padding: '6px 12px' }}
+              >
+                PageSync (2-Slot)
+              </button>
+              <button
+                onClick={() => handleModeChange('conventional')}
+                className={`chart-mode-pill ${mode === 'conventional' ? 'chart-mode-pill--active' : ''}`}
+                style={{ textAlign: 'center', padding: '6px 12px' }}
+              >
+                Conventional (5-Slot)
+              </button>
             </div>
-          </div>
 
-          {/* 3D WebGL Canvas */}
-          <StorageBenchmark3D mode={mode} triggerRef={triggerRef} />
-
-          {/* Bottom Left HUD Legend */}
-          <div className="viewport-overlay-legend">
-            <div className="glass-panel legend-hud">
-              <div className="legend-item">
-                <span className="legend-dot" style={{ background: 'var(--accent-2)', boxShadow: '0 0 8px var(--accent-2)' }} />
-                <span>Page-Warmed SLOAD (Low Gas · Contiguous)</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot" style={{ background: 'var(--orb-pink)', boxShadow: '0 0 8px var(--orb-pink)' }} />
-                <span>Cold SLOAD / SSTORE (High Gas · Page Miss)</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot" style={{ background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />
-                <span>Envio Event Streamer Mesh</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Right Interactive Trigger */}
-          <div className="viewport-overlay-actions">
             <button
               onClick={handleTriggerWorkload}
               className="glass-button-primary"
-              style={{ fontSize: '0.8125rem' }}
+              style={{ width: '100%', padding: '10px 18px', fontSize: '0.85rem' }}
             >
               <span>⚡</span>
-              <span>Trigger 100 Ops Burst</span>
+              <span>Dispatch 100 Ops Burst</span>
             </button>
           </div>
         </section>
 
-        {/* ── Signature 6.1 KPI Stat Cards (#metrics) ───────────────────────── */}
-        <section id="metrics" className="kpi-grid">
-          <StatCard
-            label="Avg Gas / Place Op"
-            value={mode === 'pagesync' ? psPlaceAvg.toLocaleString() : naivePlaceAvg.toLocaleString()}
-            subValue={mode === 'pagesync' ? 'Contiguous 2-slot warm cache' : 'Fragmented 5-slot page misses'}
-            delta={mode === 'pagesync' ? `-${gasSavingsPct}% vs Conventional` : `+40.2% Gas Penalty`}
-            deltaType={mode === 'pagesync' ? 'positive' : 'negative'}
-            sparklineData={mode === 'pagesync' ? [12400, 12450, 12380, 12420, 12390, 12410, 12430] : [17200, 17500, 17300, 17800, 17400, 17600, 17350]}
-            icon="⚡"
-          />
+        {/* ── Section: Key Performance Indicators (#metrics) ────────────────── */}
+        <section id="metrics" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="section-header">
+            <div className="section-header__title-group">
+              <div className="section-header__heading">
+                <span>Executive Performance Metrics</span>
+                <span className="glass-chip" style={{ fontSize: '0.68rem', padding: '1px 8px' }}>
+                  {mode === 'pagesync' ? 'Contiguous Cache' : 'Fragmented Slots'}
+                </span>
+              </div>
+              <span className="section-header__sub">
+                MonadDB SSD page warm hit ratio & EVM gas benchmark telemetry
+              </span>
+            </div>
+          </div>
 
-          <StatCard
-            label="Cold Page Miss Rate"
-            value={mode === 'pagesync' ? '4.2%' : '68.5%'}
-            subValue="MonadDB SSD asynchronous buffer misses"
-            delta={mode === 'pagesync' ? '-93.8% Page Faults' : '+64.3% Uncached Accesses'}
-            deltaType={mode === 'pagesync' ? 'positive' : 'negative'}
-            sparklineData={mode === 'pagesync' ? [8.1, 7.2, 5.5, 4.9, 4.4, 4.2] : [45, 52, 61, 58, 64, 68.5]}
-            icon="🧊"
-          />
+          <div className="kpi-grid">
+            <StatCard
+              label="Avg Gas / Place Op"
+              value={mode === 'pagesync' ? psPlaceAvg.toLocaleString() : naivePlaceAvg.toLocaleString()}
+              subValue={mode === 'pagesync' ? 'Contiguous 2-slot warm cache' : 'Fragmented 5-slot page misses'}
+              delta={mode === 'pagesync' ? `-${gasSavingsPct}% vs Conventional` : `+40.2% Gas Penalty`}
+              deltaType={mode === 'pagesync' ? 'positive' : 'negative'}
+              sparklineData={mode === 'pagesync' ? [12400, 12450, 12380, 12420, 12390, 12410, 12430] : [17200, 17500, 17300, 17800, 17400, 17600, 17350]}
+              icon="⚡"
+            />
 
-          <StatCard
-            label="Orderbook Throughput"
-            value={mode === 'pagesync' ? '1,280 ops/s' : '895 ops/s'}
-            subValue="Sustained limit order execution rate"
-            delta={mode === 'pagesync' ? '+43.0% Speedup' : 'Degraded by IO wait'}
-            deltaType={mode === 'pagesync' ? 'positive' : 'negative'}
-            sparklineData={mode === 'pagesync' ? [980, 1050, 1120, 1180, 1240, 1280] : [920, 910, 890, 905, 895]}
-            icon="📈"
-          />
+            <StatCard
+              label="Cold Page Miss Rate"
+              value={mode === 'pagesync' ? '4.2%' : '68.5%'}
+              subValue="MonadDB SSD asynchronous buffer misses"
+              delta={mode === 'pagesync' ? '-93.8% Page Faults' : '+64.3% Uncached Accesses'}
+              deltaType={mode === 'pagesync' ? 'positive' : 'negative'}
+              sparklineData={mode === 'pagesync' ? [8.1, 7.2, 5.5, 4.9, 4.4, 4.2] : [45, 52, 61, 58, 64, 68.5]}
+              icon="🧊"
+            />
 
-          <StatCard
-            label="Envio Indexer State"
-            value={stats?.envio?.ordersPlaced?.toLocaleString() || '24,850'}
-            subValue={`${stats?.envio?.tradesExecuted?.toLocaleString() || '14,210'} Trades Settled`}
-            delta="99.98% Synced"
-            deltaType="neutral"
-            sparklineData={[18200, 19500, 21200, 22800, 23900, 24850]}
-            badgeText="HyperSync"
-            icon="🛰️"
-          />
+            <StatCard
+              label="Orderbook Throughput"
+              value={mode === 'pagesync' ? '1,280 ops/s' : '895 ops/s'}
+              subValue="Sustained limit order execution rate"
+              delta={mode === 'pagesync' ? '+43.0% Speedup' : 'Degraded by IO wait'}
+              deltaType={mode === 'pagesync' ? 'positive' : 'negative'}
+              sparklineData={mode === 'pagesync' ? [980, 1050, 1120, 1180, 1240, 1280] : [920, 910, 890, 905, 895]}
+              icon="📈"
+            />
+
+            <StatCard
+              label="Envio Indexer State"
+              value={stats?.envio?.ordersPlaced?.toLocaleString() || '24,850'}
+              subValue={`${stats?.envio?.tradesExecuted?.toLocaleString() || '14,210'} Trades Settled`}
+              delta="99.98% Synced"
+              deltaType="neutral"
+              sparklineData={[18200, 19500, 21200, 22800, 23900, 24850]}
+              badgeText="HyperSync"
+              icon="🛰️"
+            />
+          </div>
         </section>
 
-        {/* ── Signature 6.3 Analytics Chart Panel (#diagnostics) ────────────── */}
+        {/* ── Section: 3D Storage Viewport (#viewport) ─────────────────────── */}
+        <section id="viewport" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="section-header">
+            <div className="section-header__title-group">
+              <div className="section-header__heading">
+                <span>3D Storage Page Frame Visualizer</span>
+                <span className="glass-chip" style={{ fontSize: '0.68rem', padding: '1px 8px' }}>
+                  WebGL Three.js
+                </span>
+              </div>
+              <span className="section-header__sub">
+                Interactive contiguous 32-byte slot layout over Monad 4KB memory boundary
+              </span>
+            </div>
+            <div className="text-micro" style={{ color: 'var(--text-muted)' }}>
+              Click & Drag to Orbit • Scroll to Zoom
+            </div>
+          </div>
+
+          <div className="glass-panel viewport-card glass-enter">
+            {/* Top Left Overlay Controls */}
+            <div className="viewport-overlay-controls">
+              <div className="glass-panel" style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="text-micro" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                  STORAGE PAGE FRAME
+                </span>
+                <span className="glass-chip" style={{ fontSize: '0.68rem', padding: '1px 8px' }}>
+                  {mode === 'pagesync' ? 'Contiguous Packed Mode' : 'Fragmented Mapping'}
+                </span>
+              </div>
+            </div>
+
+            {/* 3D WebGL Canvas */}
+            <StorageBenchmark3D mode={mode} triggerRef={triggerRef} />
+
+            {/* Bottom Left HUD Legend */}
+            <div className="viewport-overlay-legend">
+              <div className="glass-panel legend-hud">
+                <div className="legend-item">
+                  <span className="legend-dot" style={{ background: 'var(--accent-2)', boxShadow: '0 0 8px var(--accent-2)' }} />
+                  <span>Page-Warmed SLOAD (Low Gas · Contiguous)</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot" style={{ background: 'var(--orb-pink)', boxShadow: '0 0 8px var(--orb-pink)' }} />
+                  <span>Cold SLOAD / SSTORE (High Gas · Page Miss)</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot" style={{ background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }} />
+                  <span>Envio Event Streamer Mesh</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Right Interactive Trigger */}
+            <div className="viewport-overlay-actions">
+              <button
+                onClick={handleTriggerWorkload}
+                className="glass-button-primary"
+                style={{ fontSize: '0.8125rem' }}
+              >
+                <span>⚡</span>
+                <span>Trigger 100 Ops Burst</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Section: Gas Benchmark Diagnostics (#diagnostics) ────────────── */}
         <section id="diagnostics" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div className="section-header">
+            <div className="section-header__title-group">
+              <div className="section-header__heading">
+                <span>Gas Benchmark Diagnostics & Profiling</span>
+                <span className="glass-chip" style={{ fontSize: '0.68rem', padding: '1px 8px', color: 'var(--success)' }}>
+                  -28.4% Average Gas
+                </span>
+              </div>
+              <span className="section-header__sub">
+                Comparative analysis of Monad contiguous page allocation against traditional EVM slot mapping
+              </span>
+            </div>
+          </div>
+
           <ChartPanel benchmark={benchmark} />
 
           {/* Benchmark Operation Grid */}
@@ -483,16 +597,83 @@ export default function App() {
           </div>
         </section>
 
-        {/* ── Envio Tables & Activity Stream (#stream) ──────────────────────── */}
-        <section id="stream" className="dashboard-grid-two-col">
-          <EnvioTables orders={orders} trades={trades} backendOk={backendOk} />
-          <ActivityLog events={events} />
+        {/* ── Section: Live Envio Stream & Activity (#stream) ───────────────── */}
+        <section id="stream" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="section-header">
+            <div className="section-header__title-group">
+              <div className="section-header__heading">
+                <span>Live Envio HyperSync Stream & Mempool</span>
+                <span className="glass-chip">
+                  <span className="glass-chip__dot glass-chip__dot--live" />
+                  REAL-TIME
+                </span>
+              </div>
+              <span className="section-header__sub">
+                Decentralized order event indexing and live storage execution telemetry
+              </span>
+            </div>
+          </div>
+
+          <div className="dashboard-grid-two-col">
+            <EnvioTables orders={orders} trades={trades} backendOk={backendOk} />
+            <ActivityLog events={events} />
+          </div>
         </section>
 
-        {/* ── Storage Page Architecture Explainer (#architecture) ──────────── */}
-        <section id="architecture">
+        {/* ── Section: Storage Page Architecture Explainer (#architecture) ─── */}
+        <section id="architecture" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="section-header">
+            <div className="section-header__title-group">
+              <div className="section-header__heading">
+                <span>MonadDB Storage Page Architecture & Memory Map</span>
+                <span className="glass-chip" style={{ fontSize: '0.68rem', padding: '1px 8px' }}>
+                  Solidity Bit-Packing
+                </span>
+              </div>
+              <span className="section-header__sub">
+                Contiguous 32-byte slot layout and warm-page cache alignment specifications
+              </span>
+            </div>
+          </div>
+
           <ArchitectureExplainer />
         </section>
+
+        {/* ── Footer ─────────────────────────────────────────────────────────── */}
+        <footer
+          className="glass-panel"
+          style={{
+            padding: '20px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            borderRadius: 'var(--radius-md)',
+            marginTop: 'var(--space-4)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--accent-2)' }}>
+              Monad-PageSync
+            </span>
+            <span className="text-micro" style={{ color: 'var(--text-muted)' }}>
+              • High-Performance Page-Aware Storage on Monad EVM
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span className="text-micro" style={{ color: 'var(--text-muted)' }}>
+              Indexed with <strong style={{ color: 'var(--text-secondary)' }}>Envio HyperSync</strong>
+            </span>
+            <span className="text-micro" style={{ color: 'var(--text-muted)' }}>
+              Designed with <strong style={{ color: 'var(--accent)' }}>Aurora Glassmorphism</strong>
+            </span>
+            <span className="text-data text-micro" style={{ color: 'var(--success)' }}>
+              ● Operational
+            </span>
+          </div>
+        </footer>
       </main>
 
       {/* ── Modals & Notifications ─────────────────────────────────────────── */}

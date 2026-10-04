@@ -49,20 +49,26 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* ── Hero Section ─────────────────────────────────────────────────────────── */
-.hero-section {
+/* ── Hero Panel ───────────────────────────────────────────────────────────── */
+.hero-panel {
+  padding: var(--space-6);
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 20px;
-  padding: var(--space-4) 0;
+  gap: 28px;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border-strong);
+  box-shadow: var(--shadow-2), var(--glass-highlight);
 }
 
 .hero-title-area {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  max-width: 680px;
 }
 
 .hero-badges-row {
@@ -70,6 +76,50 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.hero-control-card {
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 280px;
+  border-radius: var(--radius-md);
+}
+
+/* ── Section Header ───────────────────────────────────────────────────────── */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: var(--space-3);
+  padding: 0 4px;
+}
+
+.section-header__title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.section-header__heading {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-header__sub {
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
 /* ── 3D Viewport ──────────────────────────────────────────────────────────── */
