@@ -1,0 +1,552 @@
+﻿{
+    "network":  "monad-testnet",
+    "chainId":  10143,
+    "repetitions":  3,
+    "successfulTransactions":  30,
+    "allReceiptStatusesOne":  true,
+    "workload":  [
+                     "place order \u003cbaseOrderId\u003e",
+                     "place order \u003cbaseOrderId + 1\u003e",
+                     "update order \u003cbaseOrderId\u003e",
+                     "cancel order \u003cbaseOrderId\u003e",
+                     "execute order \u003cbaseOrderId + 1\u003e"
+                 ],
+    "runs":  [
+                 {
+                     "run":  1,
+                     "naiveTotalGasUsed":  339892,
+                     "pageSyncTotalGasUsed":  270478,
+                     "percentDifference":  20.42
+                 },
+                 {
+                     "run":  2,
+                     "naiveTotalGasUsed":  358751,
+                     "pageSyncTotalGasUsed":  289337,
+                     "percentDifference":  19.35
+                 },
+                 {
+                     "run":  3,
+                     "naiveTotalGasUsed":  339892,
+                     "pageSyncTotalGasUsed":  270478,
+                     "percentDifference":  20.42
+                 }
+             ],
+    "transactions":  [
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  1,
+                             "operation":  "place",
+                             "orderId":  930001,
+                             "transactionHash":  "0xec666827929cbd69d2de4235158de173998c5e20cd7374324a48e445025e082e",
+                             "blockNumber":  68354320,
+                             "status":  1,
+                             "gasUsed":  99870
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  1,
+                             "operation":  "secondPlacement",
+                             "orderId":  930002,
+                             "transactionHash":  "0x932a2b8b0a411fe19666d807c0e138cd57cd2e768fe4a845dc1bfb3816899453",
+                             "blockNumber":  68354327,
+                             "status":  1,
+                             "gasUsed":  116950
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  1,
+                             "operation":  "update",
+                             "orderId":  930001,
+                             "transactionHash":  "0x72e2b2a85ce2546002c3ff209fbadaa5c2587a4eb4540e5023fdb0a0c328c1f3",
+                             "blockNumber":  68354333,
+                             "status":  1,
+                             "gasUsed":  36030
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  1,
+                             "operation":  "cancel",
+                             "orderId":  930001,
+                             "transactionHash":  "0x01dc8ab0f38ba1b9c91022ba2f63681b1330d2632558340d99323177c8f9e32e",
+                             "blockNumber":  68354340,
+                             "status":  1,
+                             "gasUsed":  51769
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  1,
+                             "operation":  "execute",
+                             "orderId":  930002,
+                             "transactionHash":  "0xef069ad03e175598074e054b1fa7d81543ab8b0fe7daabe401b02e14290bfcad",
+                             "blockNumber":  68354347,
+                             "status":  1,
+                             "gasUsed":  35273
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  1,
+                             "operation":  "place",
+                             "orderId":  930001,
+                             "transactionHash":  "0xbd988e767bf279746410db2e16163c7ed58e92690d62ae020875c5d2b6c038d6",
+                             "blockNumber":  68354353,
+                             "status":  1,
+                             "gasUsed":  81986
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  1,
+                             "operation":  "secondPlacement",
+                             "orderId":  930002,
+                             "transactionHash":  "0x951771dca328ea1c3cde0ca66743c09e7256316bf23e61da66ff15eee6506d69",
+                             "blockNumber":  68354360,
+                             "status":  1,
+                             "gasUsed":  81998
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  1,
+                             "operation":  "update",
+                             "orderId":  930001,
+                             "transactionHash":  "0x359756236cced308e2d84f56e8b8e78f122b8e256d6bfaf4c7657776a164946c",
+                             "blockNumber":  68354369,
+                             "status":  1,
+                             "gasUsed":  36394
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  1,
+                             "operation":  "cancel",
+                             "orderId":  930001,
+                             "transactionHash":  "0x282b04fe7cb7764d601bf8bf87137fae4de26cc5e455057b6df84da7aae1107a",
+                             "blockNumber":  68354375,
+                             "status":  1,
+                             "gasUsed":  34806
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  1,
+                             "operation":  "execute",
+                             "orderId":  930002,
+                             "transactionHash":  "0xa2c9944879f870a33171cfff5756d20dcd3a44d95fa1f1c0207456ed7bd6b63c",
+                             "blockNumber":  68354382,
+                             "status":  1,
+                             "gasUsed":  35294
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  2,
+                             "operation":  "place",
+                             "orderId":  940001,
+                             "transactionHash":  "0x51a70784c97a17052440a85bdb7118551db43b2ea8da0f255a9d6bc18b850c61",
+                             "blockNumber":  68354396,
+                             "status":  1,
+                             "gasUsed":  99870
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  2,
+                             "operation":  "secondPlacement",
+                             "orderId":  940002,
+                             "transactionHash":  "0x1053fee72dc3e962681d487b06b3f67115c1bc1c3ced7c323067ac4e4952d74c",
+                             "blockNumber":  68354408,
+                             "status":  1,
+                             "gasUsed":  127793
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  2,
+                             "operation":  "update",
+                             "orderId":  940001,
+                             "transactionHash":  "0x9095800d97ca24bc9c6ff783590bd614e389f87775475f5fc08ced11cb4b4e2a",
+                             "blockNumber":  68354414,
+                             "status":  1,
+                             "gasUsed":  36030
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  2,
+                             "operation":  "cancel",
+                             "orderId":  940001,
+                             "transactionHash":  "0xec55ad7fb182f665d0d82b253e4b19b7b52f12a23b2f88b5f78e9b4a4126d3c9",
+                             "blockNumber":  68354420,
+                             "status":  1,
+                             "gasUsed":  51769
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  2,
+                             "operation":  "execute",
+                             "orderId":  940002,
+                             "transactionHash":  "0x5608c1defc49e3f51294e38aeb9d53be2e31accf27bb7f27a1f4c54528521f85",
+                             "blockNumber":  68354426,
+                             "status":  1,
+                             "gasUsed":  43289
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  2,
+                             "operation":  "place",
+                             "orderId":  940001,
+                             "transactionHash":  "0x7869239bade96fcad0dbcbe76c976da5278f897e490b8ea9dd9635788126a6fa",
+                             "blockNumber":  68354433,
+                             "status":  1,
+                             "gasUsed":  81986
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  2,
+                             "operation":  "secondPlacement",
+                             "orderId":  940002,
+                             "transactionHash":  "0x29448fd67091941b8acff05a1d3c847aaeb80439ded250f1c2a95e77f3e423de",
+                             "blockNumber":  68354439,
+                             "status":  1,
+                             "gasUsed":  92841
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  2,
+                             "operation":  "update",
+                             "orderId":  940001,
+                             "transactionHash":  "0x47a5c5a43899bc87207eb0aff60c576d424db98f192910e551ca7f5f63b4f8f8",
+                             "blockNumber":  68354445,
+                             "status":  1,
+                             "gasUsed":  36394
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  2,
+                             "operation":  "cancel",
+                             "orderId":  940001,
+                             "transactionHash":  "0x4c2b1b760e06615367ea28d6dd6c294cd62f875b9e105ade01f595c0e23fac77",
+                             "blockNumber":  68354454,
+                             "status":  1,
+                             "gasUsed":  34806
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  2,
+                             "operation":  "execute",
+                             "orderId":  940002,
+                             "transactionHash":  "0x1a05440b8f0590d4ef5fd11432434ffc156bd3ffc02933cd857ec7edbbdd4492",
+                             "blockNumber":  68354461,
+                             "status":  1,
+                             "gasUsed":  43310
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  3,
+                             "operation":  "place",
+                             "orderId":  950001,
+                             "transactionHash":  "0x26632f500f1a683a08b02753306d1ee5e34ffd2634e9d81a36d7f7337ea91548",
+                             "blockNumber":  68354470,
+                             "status":  1,
+                             "gasUsed":  99870
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  3,
+                             "operation":  "secondPlacement",
+                             "orderId":  950002,
+                             "transactionHash":  "0x80783a1040f7522815ccad56e4160b42970dabec491abb3038ed7f5d0cb7d43f",
+                             "blockNumber":  68354475,
+                             "status":  1,
+                             "gasUsed":  116950
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  3,
+                             "operation":  "update",
+                             "orderId":  950001,
+                             "transactionHash":  "0x1e32f30ec708c7a21ebacabbb40fa1bffa016e54cf6ddbdc8b20a0b62add09b7",
+                             "blockNumber":  68354482,
+                             "status":  1,
+                             "gasUsed":  36030
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  3,
+                             "operation":  "cancel",
+                             "orderId":  950001,
+                             "transactionHash":  "0xb68b3da41850a262fbd4d0f4578beeb09a480dc6b9cba269faf0b059f80d886f",
+                             "blockNumber":  68354491,
+                             "status":  1,
+                             "gasUsed":  51769
+                         },
+                         {
+                             "contract":  "NaiveOrderBook",
+                             "run":  3,
+                             "operation":  "execute",
+                             "orderId":  950002,
+                             "transactionHash":  "0x4a6569cea8ef52d0fcd40c9cddc1e7fc3af739321fa73ed7140c7654781f78d2",
+                             "blockNumber":  68354497,
+                             "status":  1,
+                             "gasUsed":  35273
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  3,
+                             "operation":  "place",
+                             "orderId":  950001,
+                             "transactionHash":  "0x327eccf0a866a8bad0400f8913306a1af96a5f18802c9a67c4419b68bcde9607",
+                             "blockNumber":  68354504,
+                             "status":  1,
+                             "gasUsed":  81986
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  3,
+                             "operation":  "secondPlacement",
+                             "orderId":  950002,
+                             "transactionHash":  "0x616b1bb115bfbb847374c0b0cc5805ad50990e814a4526e8a4cf4f783a488db2",
+                             "blockNumber":  68354510,
+                             "status":  1,
+                             "gasUsed":  81998
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  3,
+                             "operation":  "update",
+                             "orderId":  950001,
+                             "transactionHash":  "0xec381d98e951e745d7f5337b4f9c52192db8435fd504a93460c3d6487c04a454",
+                             "blockNumber":  68354516,
+                             "status":  1,
+                             "gasUsed":  36394
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  3,
+                             "operation":  "cancel",
+                             "orderId":  950001,
+                             "transactionHash":  "0x36a517fedcce5d8abbc9cd6f23aed0eca5c4af066790c2ad4894098816b90971",
+                             "blockNumber":  68354524,
+                             "status":  1,
+                             "gasUsed":  34806
+                         },
+                         {
+                             "contract":  "PageSyncOrderBook",
+                             "run":  3,
+                             "operation":  "execute",
+                             "orderId":  950002,
+                             "transactionHash":  "0xe591523f53874317b5959b8a88f8e66d013139b010461dff0c2989924570413b",
+                             "blockNumber":  68354531,
+                             "status":  1,
+                             "gasUsed":  35294
+                         }
+                     ],
+    "perOperation":  [
+                         {
+                             "operation":  "place",
+                             "naive":  {
+                                           "values":  [
+                                                          99870,
+                                                          99870,
+                                                          99870
+                                                      ],
+                                           "minimum":  99870,
+                                           "maximum":  99870,
+                                           "median":  99870,
+                                           "average":  99870,
+                                           "range":  0,
+                                           "standardDeviation":  0
+                                       },
+                             "pageSync":  {
+                                              "values":  [
+                                                             81986,
+                                                             81986,
+                                                             81986
+                                                         ],
+                                              "minimum":  81986,
+                                              "maximum":  81986,
+                                              "median":  81986,
+                                              "average":  81986,
+                                              "range":  0,
+                                              "standardDeviation":  0
+                                          },
+                             "medianGasDifference":  17884,
+                             "medianPercentDifference":  17.91
+                         },
+                         {
+                             "operation":  "secondPlacement",
+                             "naive":  {
+                                           "values":  [
+                                                          116950,
+                                                          127793,
+                                                          116950
+                                                      ],
+                                           "minimum":  116950,
+                                           "maximum":  127793,
+                                           "median":  116950,
+                                           "average":  120564.33,
+                                           "range":  10843,
+                                           "standardDeviation":  5111.44
+                                       },
+                             "pageSync":  {
+                                              "values":  [
+                                                             81998,
+                                                             92841,
+                                                             81998
+                                                         ],
+                                              "minimum":  81998,
+                                              "maximum":  92841,
+                                              "median":  81998,
+                                              "average":  85612.33,
+                                              "range":  10843,
+                                              "standardDeviation":  5111.44
+                                          },
+                             "medianGasDifference":  34952,
+                             "medianPercentDifference":  29.89
+                         },
+                         {
+                             "operation":  "update",
+                             "naive":  {
+                                           "values":  [
+                                                          36030,
+                                                          36030,
+                                                          36030
+                                                      ],
+                                           "minimum":  36030,
+                                           "maximum":  36030,
+                                           "median":  36030,
+                                           "average":  36030,
+                                           "range":  0,
+                                           "standardDeviation":  0
+                                       },
+                             "pageSync":  {
+                                              "values":  [
+                                                             36394,
+                                                             36394,
+                                                             36394
+                                                         ],
+                                              "minimum":  36394,
+                                              "maximum":  36394,
+                                              "median":  36394,
+                                              "average":  36394,
+                                              "range":  0,
+                                              "standardDeviation":  0
+                                          },
+                             "medianGasDifference":  -364,
+                             "medianPercentDifference":  -1.01
+                         },
+                         {
+                             "operation":  "cancel",
+                             "naive":  {
+                                           "values":  [
+                                                          51769,
+                                                          51769,
+                                                          51769
+                                                      ],
+                                           "minimum":  51769,
+                                           "maximum":  51769,
+                                           "median":  51769,
+                                           "average":  51769,
+                                           "range":  0,
+                                           "standardDeviation":  0
+                                       },
+                             "pageSync":  {
+                                              "values":  [
+                                                             34806,
+                                                             34806,
+                                                             34806
+                                                         ],
+                                              "minimum":  34806,
+                                              "maximum":  34806,
+                                              "median":  34806,
+                                              "average":  34806,
+                                              "range":  0,
+                                              "standardDeviation":  0
+                                          },
+                             "medianGasDifference":  16963,
+                             "medianPercentDifference":  32.77
+                         },
+                         {
+                             "operation":  "execute",
+                             "naive":  {
+                                           "values":  [
+                                                          35273,
+                                                          43289,
+                                                          35273
+                                                      ],
+                                           "minimum":  35273,
+                                           "maximum":  43289,
+                                           "median":  35273,
+                                           "average":  37945,
+                                           "range":  8016,
+                                           "standardDeviation":  3778.78
+                                       },
+                             "pageSync":  {
+                                              "values":  [
+                                                             35294,
+                                                             43310,
+                                                             35294
+                                                         ],
+                                              "minimum":  35294,
+                                              "maximum":  43310,
+                                              "median":  35294,
+                                              "average":  37966,
+                                              "range":  8016,
+                                              "standardDeviation":  3778.78
+                                          },
+                             "medianGasDifference":  -21,
+                             "medianPercentDifference":  -0.06
+                         }
+                     ],
+    "aggregate":  {
+                      "naive":  {
+                                    "values":  [
+                                                   99870,
+                                                   116950,
+                                                   36030,
+                                                   51769,
+                                                   35273,
+                                                   99870,
+                                                   127793,
+                                                   36030,
+                                                   51769,
+                                                   43289,
+                                                   99870,
+                                                   116950,
+                                                   36030,
+                                                   51769,
+                                                   35273
+                                               ],
+                                    "minimum":  35273,
+                                    "maximum":  127793,
+                                    "median":  51769,
+                                    "average":  69235.67,
+                                    "range":  92520,
+                                    "standardDeviation":  34641.9
+                                },
+                      "pageSync":  {
+                                       "values":  [
+                                                      81986,
+                                                      81998,
+                                                      36394,
+                                                      34806,
+                                                      35294,
+                                                      81986,
+                                                      92841,
+                                                      36394,
+                                                      34806,
+                                                      43310,
+                                                      81986,
+                                                      81998,
+                                                      36394,
+                                                      34806,
+                                                      35294
+                                                  ],
+                                       "minimum":  34806,
+                                       "maximum":  92841,
+                                       "median":  36394,
+                                       "average":  55352.87,
+                                       "range":  58035,
+                                       "standardDeviation":  23449.01
+                                   },
+                      "naiveTotalAcrossRuns":  1038535,
+                      "pageSyncTotalAcrossRuns":  830293,
+                      "naiveAverageTotalPerRun":  346178.33,
+                      "pageSyncAverageTotalPerRun":  276764.33,
+                      "naiveMedianTotalPerRun":  339892,
+                      "pageSyncMedianTotalPerRun":  270478,
+                      "totalPercentDifference":  20.05
+                  }
+}
