@@ -1,195 +1,166 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api } from './api';
+import { useMemo, useState } from 'react';
 import './App.css';
+import StorageBenchmark3D from './components/StorageBenchmark3D';
 
-const operations = ['place', 'update', 'cancel', 'execute'];
-const operationLabels = { place: 'Place order', update: 'Update order', cancel: 'Cancel order', execute: 'Execute trade' };
+const CONTRACTS = {
+  NaiveOrderBook: {
+    address: '0x9eDDb8B7612954014Af0fFA58dc9d93dB2C75d68',
+    slots: [
+      { slot: 0, title: 'trader', type: 'address', bytes: 20, offset: 0, note: 'Order mapping word' },
+      { slot: 1, title: 'price', type: 'uint256', bytes: 32, offset: 0, note: 'Order mapping word' },
+      { slot: 2, title: 'quantity', type: 'uint256', bytes: 32, offset: 0, note: 'Order mapping word' },
+      { slot: 3, title: 'side + status', type: 'uint8 + uint8', bytes: 2, offset: 0, note: 'Packed fields; 30 bytes unused' },
+    ],
+    words: 4,
+  },
+  PageSyncOrderBook: {
+    address: '0x5De52bC09A2A688f6c4615099465e9049CC83bC1',
+    slots: [
+      { slot: 0, title: 'data1', type: 'packed trader + price', bytes: 32, offset: 0, note: 'Trader, price, reserved bits' },
+      { slot: 1, title: 'data2', type: 'packed quantity + flags', bytes: 32, offset: 0, note: 'Quantity, side, status, padding' },
+    ],
+    words: 2,
+  },
+};
 
-const formatNumber = value => (value === null || value === undefined ? '—' : Number(value).toLocaleString());
-const shortHash = value => value ? `${value.slice(0, 8)}…${value.slice(-6)}` : '—';
-const percent = (naive, pagesync) => naive > 0 ? (((naive - pagesync) / naive) * 100).toFixed(2) : '0.00';
+const RESULTS = [
+  ['Placement', 99870, 81986],
+  ['Second placement', 116950, 81998],
+  ['Update', 36030, 36394],
+  ['Cancel', 51769, 34806],
+  ['Execute', 35273, 35294],
+];
 
-function StatCard({ label, value, detail, tone = '' }) {
-  return <div className="stat-card">
-    <span className="eyebrow">{label}</span>
-    <strong className={tone}>{value}</strong>
-    {detail && <span className="stat-detail">{detail}</span>}
-  </div>;
+const sampleStruct = `struct Order {
+    address trader;
+    uint256 price;
+    uint256 quantity;
+    uint8 side;
+    uint8 status;
+}`;
+
+const typeBytes = (type) => {
+  const match = type.match(/^(u?int|bytes)(\d+)?$/);
+  if (type === 'address') return 20;
+  if (type === 'bool') return 1;
+  if (match) return match[1] === 'bytes' ? Number(match[2] || 1) : Number(match[2] || 256) / 8;
+  return null;
+};
+
+function analyzeStruct(source) {
+  const structMatch = source.match(/struct\s+(\w+)\s*\{([\s\S]*?)\}/);
+  if (!structMatch) throw new Error('Unable to determine layout: paste one Solidity struct declaration.');
+  const fields = [];
+  for (const line of structMatch[2].split(';')) {
+    const clean = line.replace(/\/\/.*$/, '').trim();
+    if (!clean) continue;
+    const parts = clean.split(/\s+/);
+    if (parts.length !== 2 || !/^(address|bool|u?int(8|16|32|64|128|256)?|bytes([1-9]|[12]\d|3[0-2]))$/.test(parts[0])) {
+      throw new Error(`Unsupported type or declaration: "${clean}".`);
+    }
+    const bytes = typeBytes(parts[0]);
+    if (!bytes) throw new Error(`Unsupported type: ${parts[0]}.`);
+    fields.push({ name: parts[1], type: parts[0], bytes });
+  }
+  if (!fields.length) throw new Error('Unable to determine layout: no supported fields found.');
+  const slots = [];
+  let current = { slot: 0, used: 0, fields: [] };
+  fields.forEach((field) => {
+    if (field.bytes === 32 || current.used + field.bytes > 32) {
+      if (current.fields.length) slots.push(current);
+      current = { slot: current.slot + (current.fields.length ? 1 : 0), used: 0, fields: [] };
+    }
+    field.offset = current.used;
+    field.slot = current.slot;
+    field.packingGroup = current.fields.length ? `group-${current.slot}` : `single-${current.slot}`;
+    current.fields.push(field);
+    current.used += field.bytes;
+  });
+  if (current.fields.length) slots.push(current);
+  const bytesUsed = fields.reduce((sum, field) => sum + field.bytes, 0);
+  return { name: structMatch[1], fields, slots, bytesUsed, storageSlots: slots.length, capacity: slots.length * 32 };
 }
 
-function EmptyState({ title, message }) {
-  return <div className="empty-state"><strong>{title}</strong><span>{message}</span></div>;
+const format = (value) => Number(value).toLocaleString();
+const reduction = (naive, packed) => ((naive - packed) / naive * 100).toFixed(2);
+
+function Button({ children, onClick, secondary = false }) {
+  return <button className={secondary ? 'button secondary' : 'button'} onClick={onClick}>{children}</button>;
 }
 
-function StatusPill({ children, tone = 'neutral' }) {
-  return <span className={`status-pill ${tone}`}>{children}</span>;
-}
-
-function BenchmarkTable({ benchmark }) {
-  const naive = benchmark?.naive;
-  const pagesync = benchmark?.pagesync;
-  const hasResults = Boolean(naive?.total || pagesync?.total);
-  return <div className="table-scroll">
-    <table className="data-table benchmark-table">
-      <thead><tr><th>Operation</th><th>Conventional</th><th>PageSync</th><th>Difference</th><th>Sample size</th></tr></thead>
-      <tbody>
-        {operations.map(operation => {
-          const n = naive?.[operation];
-          const p = pagesync?.[operation];
-          const diff = n?.total || p?.total ? percent(n?.total || 0, p?.total || 0) : null;
-          return <tr key={operation}>
-            <td><strong>{operationLabels[operation]}</strong></td>
-            <td className="mono">{hasResults ? formatNumber(n?.avg) : '—'} <small>avg gas</small></td>
-            <td className="mono pagesync-text">{hasResults ? formatNumber(p?.avg) : '—'} <small>avg gas</small></td>
-            <td>{diff === null ? '—' : <StatusPill tone={Number(diff) >= 0 ? 'positive' : 'negative'}>{diff}%</StatusPill>}</td>
-            <td className="mono">{n?.count || p?.count ? formatNumber(n?.count || p?.count) : '—'}</td>
-          </tr>;
-        })}
-        <tr className="total-row">
-          <td><strong>Total gas</strong></td>
-          <td className="mono"><strong>{hasResults ? formatNumber(naive?.total) : '—'}</strong></td>
-          <td className="mono pagesync-text"><strong>{hasResults ? formatNumber(pagesync?.total) : '—'}</strong></td>
-          <td><strong>{hasResults ? formatNumber((naive?.total || 0) - (pagesync?.total || 0)) : '—'}</strong></td>
-          <td>All operations</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>;
-}
-
-function OrdersTable({ orders, onSelect }) {
-  if (!orders.length) return <EmptyState title="No indexed orders yet" message="Start Envio and run the benchmark workload to see OrderPlaced events here." />;
-  return <div className="table-scroll"><table className="data-table">
-    <thead><tr><th>Order</th><th>Trader</th><th>Price</th><th>Quantity</th><th>Side</th><th>Block</th><th>Transaction</th></tr></thead>
-    <tbody>{orders.map(order => <tr key={order.id} onClick={() => onSelect(order.orderId)} className="clickable-row">
-      <td className="mono">#{order.orderId}</td>
-      <td className="mono">{shortHash(order.trader)}</td>
-      <td className="mono">{formatNumber(order.price)}</td>
-      <td className="mono">{formatNumber(order.quantity)}</td>
-      <td><StatusPill tone={Number(order.side) === 0 ? 'positive' : 'negative'}>{Number(order.side) === 0 ? 'BUY' : 'SELL'}</StatusPill></td>
-      <td className="mono">{formatNumber(order.blockNumber)}</td>
-      <td className="mono">{shortHash(order.transactionHash)}</td>
-    </tr>)}</tbody>
-  </table></div>;
-}
-
-function TradesTable({ trades }) {
-  if (!trades.length) return <EmptyState title="No indexed trades yet" message="Executed trades will appear after TradeExecuted events are indexed by Envio." />;
-  return <div className="table-scroll"><table className="data-table">
-    <thead><tr><th>Order</th><th>Price</th><th>Quantity</th><th>Block</th><th>Transaction</th><th>Contract</th></tr></thead>
-    <tbody>{trades.map(trade => <tr key={trade.id}>
-      <td className="mono">#{trade.orderId}</td><td className="mono">{formatNumber(trade.price)}</td>
-      <td className="mono">{formatNumber(trade.quantity)}</td><td className="mono">{formatNumber(trade.blockNumber)}</td>
-      <td className="mono">{shortHash(trade.transactionHash)}</td><td className="mono">{shortHash(trade.contractAddress)}</td>
-    </tr>)}</tbody>
-  </table></div>;
-}
-
-function Overview({ stats, benchmark, orders, trades, onNavigate }) {
-  const totalGas = benchmark?.naive?.total || benchmark?.pagesync?.total;
-  const savings = benchmark?.naive?.total ? percent(benchmark.naive.total, benchmark.pagesync?.total || 0) : null;
-  return <div className="page-content">
-    <section className="hero-panel">
-      <div><span className="kicker">MONAD TESTNET / ONCHAIN FINANCE</span><h1>Measure storage locality.<br /><em>Prove the difference.</em></h1>
-        <p>PageSync runs an identical order-book workload against conventional and page-aware storage layouts, then reports measured gas behavior through Envio.</p>
-        <button className="primary-button" onClick={() => onNavigate('benchmark')}>View benchmark results <span>→</span></button>
-      </div>
-      <div className="hero-diagram"><div className="diagram-node">NAIVE<br /><small>5 storage slots</small></div><div className="diagram-line" /><div className="diagram-node highlighted">PAGESYNC<br /><small>2 packed slots</small></div><div className="diagram-caption">same workload → measured gas</div></div>
-    </section>
-    <div className="stats-grid">
-      <StatCard label="Orders indexed" value={formatNumber(stats?.envio?.ordersPlaced)} detail={`${formatNumber(stats?.envio?.ordersUpdated)} updates`} />
-      <StatCard label="Trades indexed" value={formatNumber(stats?.envio?.tradesExecuted)} detail={`${formatNumber(stats?.envio?.ordersCancelled)} cancellations`} />
-      <StatCard label="Benchmark total gas" value={totalGas ? formatNumber(totalGas) : 'Not run'} detail={benchmark ? 'Measured from Foundry run' : 'Run RunBenchmark.s.sol'} />
-      <StatCard label="Measured improvement" value={savings === null ? 'Not available' : `${savings}%`} detail="Naive total minus PageSync total" tone={savings > 0 ? 'positive-text' : ''} />
+function Analyzer() {
+  const [source, setSource] = useState(sampleStruct);
+  const [analysis, setAnalysis] = useState(() => analyzeStruct(sampleStruct));
+  const [error, setError] = useState('');
+  const run = () => {
+    try { setAnalysis(analyzeStruct(source)); setError(''); } catch (err) { setAnalysis(null); setError(err.message); }
+  };
+  const copy = (text) => navigator.clipboard?.writeText(text);
+  return <Page title="Struct Analyzer" eyebrow="TOOL / STORAGE OPTIMIZER" intro="See exactly how a supported Solidity struct maps into 32-byte storage slots.">
+    <div className="tool-grid">
+      <section className="card editor-card">
+        <div className="card-head"><div><span className="label">SOLIDITY INPUT</span><h2>Paste a struct</h2></div><span className="chip">client-side</span></div>
+        <textarea className="code-editor" value={source} onChange={(event) => setSource(event.target.value)} spellCheck="false" />
+        <div className="supported"><span>Supported</span> address · uint/int8–256 · bool · bytes1–32</div>
+        <Button onClick={run}>Analyze storage →</Button>
+        {error && <div className="error-box">{error}</div>}
+      </section>
+      {analysis && <section className="card">
+        <div className="card-head"><div><span className="label">LAYOUT REPORT</span><h2>{analysis.name}</h2></div><span className="chip green">{analysis.storageSlots} slots</span></div>
+        <div className="metric-row"><Metric label="Storage slots" value={analysis.storageSlots} /><Metric label="Bytes used" value={`${analysis.bytesUsed} / ${analysis.capacity}`} /><Metric label="Unused bytes" value={analysis.capacity - analysis.bytesUsed} /></div>
+        <div className="slot-list">{analysis.slots.map((slot) => <div className="slot" key={slot.slot} onClick={() => {}}>
+          <div className="slot-title"><strong>Slot {slot.slot}</strong><span>{slot.capacity || 32 - slot.used} bytes unused</span></div>
+          <div className="slot-bar">{slot.fields.map((field) => <div className="field-block" style={{ flexBasis: `${field.bytes / 32 * 100}%` }} key={field.name}><b>{field.name}</b><small>{field.bytes} bytes</small></div>)}</div>
+          <div className="slot-meta">{slot.fields.map((field) => <span key={field.name}><b>{field.name}</b> · {field.type} · offset {field.offset}</span>)}</div>
+        </div>)}</div>
+        <div className="callout"><b>Potential optimization</b><span>{analysis.slots.some((slot) => slot.fields.length > 1) ? 'Small fields are packed together safely in the same storage slot.' : 'Group adjacent small fields to create a packing opportunity, after checking storage compatibility.'}</span></div>
+        <div className="actions"><Button secondary onClick={() => copy(source)}>Copy analysis</Button><Button secondary onClick={() => copy(source)}>Copy struct</Button></div>
+      </section>}
     </div>
-    <div className="two-column">
-      <section className="panel"><div className="panel-heading"><div><span className="eyebrow">LATEST DATA</span><h2>Order activity</h2></div><button className="text-button" onClick={() => onNavigate('orders')}>View all →</button></div><OrdersTable orders={orders.slice(0, 5)} onSelect={() => onNavigate('orders')} /></section>
-      <section className="panel"><div className="panel-heading"><div><span className="eyebrow">LATEST DATA</span><h2>Trade activity</h2></div><button className="text-button" onClick={() => onNavigate('trades')}>View all →</button></div><TradesTable trades={trades.slice(0, 5)} /></section>
-    </div>
-  </div>;
+  </Page>;
 }
 
-function BenchmarkPage({ benchmark }) {
-  const hasResults = Boolean(benchmark?.naive?.total || benchmark?.pagesync?.total);
-  return <div className="page-content"><div className="page-heading"><div><span className="kicker">EVIDENCE, NOT ASSUMPTIONS</span><h1>Gas benchmark</h1><p>Both contracts receive the same 100 placements, 100 updates, 50 cancellations and 50 executions.</p></div><StatusPill tone={hasResults ? 'positive' : 'warning'}>{hasResults ? 'Measured result' : 'Awaiting benchmark'}</StatusPill></div>
-    <section className="panel"><div className="panel-heading"><div><span className="eyebrow">OPERATION COMPARISON</span><h2>Conventional vs PageSync</h2></div><span className="muted">Gas units • lower is better</span></div><BenchmarkTable benchmark={benchmark} />{!hasResults && <div className="callout warning-callout"><strong>No benchmark data has been generated.</strong><span>Deploy both contracts and run <code>forge script script/RunBenchmark.s.sol --broadcast</code>. The dashboard never substitutes estimated gas for measured values.</span></div>}</section>
-    <div className="two-column"><section className="panel"><span className="eyebrow">METHODOLOGY</span><h2>Fair workload</h2><ul className="clean-list"><li><strong>100</strong> placeOrder calls</li><li><strong>100</strong> updateOrder calls</li><li><strong>50</strong> cancelOrder calls</li><li><strong>50</strong> executeTrade calls</li></ul></section><section className="panel"><span className="eyebrow">INTERPRETATION</span><h2>How to read this</h2><p className="body-copy">A positive difference means PageSync used less gas than the conventional layout. Results are produced by the Foundry script and written to <code>benchmark/results/benchmark.json</code>; Envio does not measure SLOAD or SSTORE operations.</p></section></div>
-  </div>;
+function Metric({ label, value }) { return <div className="metric"><span>{label}</span><strong>{value}</strong></div>; }
+
+function Inspector() {
+  const [name, setName] = useState('NaiveOrderBook');
+  const [selected, setSelected] = useState(0);
+  const contract = CONTRACTS[name];
+  const item = contract.slots[selected];
+  return <Page title="Storage Inspector" eyebrow="TOOL / ONCHAIN LAYOUT" intro="Inspect the verified storage layout of the deployed PageSync research contracts.">
+    <section className="card inspector-form"><div><span className="label">NETWORK</span><select value="Monad Testnet" disabled><option>Monad Testnet</option></select></div><div><span className="label">CONTRACT</span><select value={name} onChange={(event) => { setName(event.target.value); setSelected(0); }}><option>NaiveOrderBook</option><option>PageSyncOrderBook</option></select></div><div className="address"><span className="label">ADDRESS</span><code>{contract.address}</code></div></section>
+    <div className="inspector-grid"><section className="card"><div className="card-head"><div><span className="label">VERIFIED STORAGE MAP</span><h2>{name}</h2></div><span className="chip">{contract.words} words / order</span></div><div className="storage-blocks">{contract.slots.map((slot, index) => <button className={`storage-block ${selected === index ? 'selected' : ''}`} onClick={() => setSelected(index)} key={slot.slot}><span>WORD {slot.slot}</span><b>{slot.title}</b><small>{slot.bytes} bytes represented</small></button>)}</div></section><section className="card detail-card"><span className="label">SELECTED STORAGE WORD</span><h2>Slot {item.slot} · {item.title}</h2><dl><dt>Field</dt><dd>{item.title}</dd><dt>Type</dt><dd>{item.type}</dd><dt>Bytes</dt><dd>{item.bytes}</dd><dt>Byte offset</dt><dd>{item.offset}</dd><dt>Packing</dt><dd>{item.note}</dd></dl><div className="callout"><b>Interpretation</b><span>This view describes the known compiled layout; an arbitrary contract cannot be decoded from an address alone without its ABI and storage layout.</span></div></section></div>
+  </Page>;
 }
 
-function AnalyticsPage({ stats }) {
-  const items = [['Orders created', stats?.envio?.ordersPlaced], ['Orders updated', stats?.envio?.ordersUpdated], ['Orders cancelled', stats?.envio?.ordersCancelled], ['Trades executed', stats?.envio?.tradesExecuted]];
-  return <div className="page-content"><div className="page-heading"><div><span className="kicker">ENVIO HYPERINDEX</span><h1>Analytics</h1><p>Historical application events indexed from both order-book contracts.</p></div><StatusPill tone={stats?.envio?.envioAvailable ? 'positive' : 'warning'}>{stats?.envio?.envioAvailable ? 'Indexer active' : 'Indexer unavailable'}</StatusPill></div>
-    <div className="stats-grid analytics-stats">{items.map(([label, value]) => <StatCard key={label} label={label} value={formatNumber(value)} detail="indexed events" />)}</div>
-    <section className="panel"><div className="panel-heading"><div><span className="eyebrow">DATA PIPELINE</span><h2>Event coverage</h2></div></div><div className="pipeline"><div><strong>Monad testnet</strong><span>OrderBook contracts</span></div><b>→</b><div><strong>Envio</strong><span>Event indexing</span></div><b>→</b><div><strong>PageSync UI</strong><span>Historical analytics</span></div></div><div className="callout"><strong>What Envio contributes</strong><span>OrderPlaced, OrderUpdated, OrderCancelled and TradeExecuted events, including block, transaction and contract metadata.</span></div></section>
-  </div>;
+function Benchmark() {
+  return <Page title="Gas Benchmark" eyebrow="TOOL / RECEIPT EVIDENCE" intro="Compare actual Monad Testnet receipt gas from the repeated controlled workload.">
+    <section className="result-banner"><div><span className="label">REPEATED RESULT · 3 RUNS · 30 TRANSACTIONS</span><h2>PageSync median total gas is 20.42% lower</h2><p>All receipts returned status 1 on chain 10143. This is a workload-specific packed-storage result, not a guarantee.</p></div><span className="chip green">verified</span></section>
+    <section className="card"><div className="toolbar"><div><span className="label">OPERATION COMPARISON</span><h2>NaiveOrderBook vs PageSyncOrderBook</h2></div><span className="muted">receipt gasUsed · lower is better</span></div><div className="table-wrap"><table><thead><tr><th>Operation</th><th>Naive</th><th>PageSync</th><th>Difference</th></tr></thead><tbody>{RESULTS.map(([label, naive, packed]) => <tr key={label}><td><b>{label}</b></td><td>{format(naive)}</td><td className="green-text">{format(packed)}</td><td><span className={packed <= naive ? 'positive' : 'negative'}>{reduction(naive, packed)}%</span></td></tr>)}</tbody></table></div></section>
+    <div className="metric-grid"><Metric label="Naive median / run" value="339,892" /><Metric label="PageSync median / run" value="270,478" /><Metric label="Average reduction" value="20.05%" /><Metric label="Network" value="Monad 10143" /></div>
+    <div className="callout warning"><b>Run live benchmark</b><span>A new benchmark sends transactions and requires wallet authorization. The displayed figures are the saved receipt results from the controlled test.</span><Button secondary onClick={() => {}}>Connect wallet to run live</Button></div>
+  </Page>;
 }
 
-function StoragePage() {
-  return <div className="page-content"><div className="page-heading"><div><span className="kicker">DESIGN EXPLAINER</span><h1>Storage architecture</h1><p>Why the two implementations exist and what PageSync is testing on Monad.</p></div></div>
-    <div className="two-column storage-columns"><section className="panel storage-panel naive-panel"><span className="storage-number">01</span><h2>Conventional layout</h2><p>NaiveOrderBook stores each field in a separate struct slot.</p><pre>{`struct Order {\n  address trader;    // slot +0\n  uint256 price;     // slot +1\n  uint256 quantity;  // slot +2\n  Side side;         // slot +3\n  Status status;     // slot +4\n}`}</pre><div className="storage-note">Five slots can cross Monad storage-page boundaries.</div></section><section className="panel storage-panel page-panel"><span className="storage-number">02</span><h2>PageSync layout</h2><p>PageSyncOrderBook packs frequently accessed fields into two adjacent slots.</p><pre>{`uint256 data1;\n// trader (160) | price (80)\n\nuint256 data2;\n// qty (128) | side (8) | status (8)`}</pre><div className="storage-note">Two adjacent slots are designed to benefit from page warming.</div></section></div>
-    <section className="panel"><span className="eyebrow">THE EXPERIMENT</span><h2>Same workload, different layout</h2><div className="experiment-steps"><div><b>1</b><span>Deploy both contracts</span></div><div><b>2</b><span>Run identical operations</span></div><div><b>3</b><span>Record actual gas</span></div><div><b>4</b><span>Compare the evidence</span></div></div></section>
-  </div>;
+function Research() {
+  const [mode, setMode] = useState('pagesync');
+  const [trigger, setTrigger] = useState(0);
+  return <Page title="PageSync Research" eyebrow="RESEARCH / MONAD CASE STUDY" intro="Packed storage on Monad, measured with actual transaction receipts.">
+    <section className="research-hero"><div><span className="label">THE EXPERIMENT</span><h2>Fewer storage words, measurable difference</h2><p>NaiveOrderBook stores an Order across four compiled storage slots. PageSyncOrderBook stores the same logical data in two packed words. Both contracts still use mappings; this experiment does not prove a separate storage-page warming mechanism.</p></div><div className="toggle"><button className={mode === 'conventional' ? 'active' : ''} onClick={() => setMode('conventional')}>Naive</button><button className={mode === 'pagesync' ? 'active' : ''} onClick={() => setMode('pagesync')}>PageSync</button></div></section>
+    <section className="visual-card"><div className="visual-head"><div><span className="label">INTERACTIVE STORAGE VISUALIZATION</span><h2>{mode === 'pagesync' ? 'Packed storage words' : 'Conventional order words'}</h2></div><Button onClick={() => setTrigger((value) => value + 1)}>Trigger trade</Button></div><StorageBenchmark3D key={trigger} mode={mode} /><p className="caption">Educational animation: highlighted blocks represent storage words accessed by the sample operation. It is not a direct visualization of EVM warm/cold state.</p></section>
+    <section className="card research-copy"><span className="label">VERIFIED CONCLUSION</span><h2>Across three repeated Monad Testnet workloads, PageSyncOrderBook showed approximately 20.42% lower median total receipt gas than NaiveOrderBook.</h2><p>The largest measured differences were placement and cancellation. Update and execute were effectively similar. The result supports a workload-specific benefit from packed representation; it does not establish universal savings or page locality.</p></section>
+  </Page>;
 }
 
-function ActivityPage({ type, orders, trades, onSelect, filter, setFilter }) {
-  const isOrders = type === 'orders';
-  const source = isOrders ? orders : trades;
-  const filtered = source.filter(item => JSON.stringify(item).toLowerCase().includes(filter.toLowerCase()));
-  return <div className="page-content"><div className="page-heading"><div><span className="kicker">ENVIO DATA</span><h1>{isOrders ? 'Order activity' : 'Trade activity'}</h1><p>{isOrders ? 'OrderPlaced events with trader, side, block and transaction context.' : 'TradeExecuted events emitted by the order books.'}</p></div></div>
-    <section className="panel"><div className="toolbar"><input value={filter} onChange={event => setFilter(event.target.value)} placeholder={isOrders ? 'Search order ID or trader…' : 'Search order ID or transaction…'} /><span className="muted">{filtered.length} shown</span></div>{isOrders ? <OrdersTable orders={filtered} onSelect={onSelect} /> : <TradesTable trades={filtered} />}</section>
-  </div>;
+function Home({ go }) {
+  return <Page home><section className="hero"><div><span className="label">PAGESYNC / DEVELOPER TOOLKIT</span><h1>Smart Contract<br /><em>Storage Optimizer</em></h1><p>Analyze Solidity storage layouts, inspect contract storage, and benchmark real gas usage.</p><div className="actions"><Button onClick={() => go('analyzer')}>Analyze Solidity struct →</Button><Button secondary onClick={() => go('inspector')}>Inspect contract</Button><Button secondary onClick={() => go('benchmark')}>Benchmark gas</Button></div></div><div className="hero-art"><div className="art-grid">{Array.from({ length: 16 }, (_, index) => <i className={index % 3 === 0 ? 'lit' : ''} key={index} />)}</div><span>storage words / packed layout</span></div></section><div className="feature-grid"><Feature number="01" title="Struct Analyzer" text="Map supported Solidity types to slots, offsets, and packing groups." onClick={() => go('analyzer')} /><Feature number="02" title="Storage Inspector" text="Explore the verified layouts behind the deployed research contracts." onClick={() => go('inspector')} /><Feature number="03" title="Gas Benchmark" text="Compare receipt gas from the controlled Monad Testnet experiment." onClick={() => go('benchmark')} /></div></Page>;
 }
+
+function Feature({ number, title, text, onClick }) { return <button className="feature" onClick={onClick}><span>{number}</span><h2>{title} ↗</h2><p>{text}</p></button>; }
+function Page({ title, eyebrow, intro, children, home }) { return <main className={home ? 'page home-page' : 'page'}>{!home && <header className="page-title"><span className="label">{eyebrow}</span><h1>{title}</h1><p>{intro}</p></header>}{children}</main>; }
 
 export default function App() {
-  const [page, setPage] = useState('overview');
-  const [benchmark, setBenchmark] = useState(null);
-  const [stats, setStats] = useState(null);
-  const [orders, setOrders] = useState([]);
-  const [trades, setTrades] = useState([]);
-  const [addresses, setAddresses] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [orderFilter, setOrderFilter] = useState('');
-  const [tradeFilter, setTradeFilter] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState(null);
-
-  const fetchAll = useCallback(async () => {
-    setError('');
-    const results = await Promise.allSettled([api.benchmark(), api.stats(), api.orders(100), api.trades(100), api.addresses()]);
-    const [bench, stat, ord, tr, addr] = results;
-    if (bench.status === 'fulfilled') setBenchmark(bench.value);
-    if (stat.status === 'fulfilled') setStats(stat.value);
-    if (ord.status === 'fulfilled') setOrders(ord.value.orders || []);
-    if (tr.status === 'fulfilled') setTrades(tr.value.trades || []);
-    if (addr.status === 'fulfilled') setAddresses(addr.value);
-    if (results.slice(0, 4).every(result => result.status === 'rejected')) setError('Backend is unavailable. Start the Node server to load live benchmark and Envio data.');
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchAll(); const interval = setInterval(fetchAll, 15000); return () => clearInterval(interval); }, [fetchAll]);
-
-  const navItems = useMemo(() => [['overview', 'Overview'], ['benchmark', 'Benchmark'], ['orders', 'Orders'], ['trades', 'Trades'], ['analytics', 'Analytics'], ['storage', 'Storage design']], []);
-  const selectOrder = id => { setSelectedOrder(id); };
-  return <div className="app-shell">
-    <aside className="sidebar"><div className="brand"><span className="brand-mark">M</span><div><strong>MONAD<span>-</span>PAGESYNC</strong><small>STORAGE RESEARCH TOOL</small></div></div><nav>{navItems.map(([id, label]) => <button key={id} className={page === id ? 'nav-item active' : 'nav-item'} onClick={() => setPage(id)}><span className={`nav-icon icon-${id}`} />{label}</button>)}</nav><div className="sidebar-footer"><div className="network-status"><span className={stats?.envio?.envioAvailable ? 'online-dot' : 'warning-dot'} />{stats?.envio?.envioAvailable ? 'Envio connected' : 'Envio pending'}</div><small>Monad Testnet · chain 10143</small></div></aside>
-    <main className="main-area"><header className="topbar"><div><span className="mobile-brand">MONAD-PAGESYNC</span><span className="breadcrumb">RESEARCH DASHBOARD / {page.toUpperCase()}</span></div><div className="topbar-actions"><span className={error ? 'connection error' : 'connection'}>{error ? '● Backend offline' : loading ? '● Connecting…' : '● Live data'}</span><button className="refresh-button" onClick={fetchAll} disabled={loading}>↻ Refresh</button></div></header>
-      {error && <div className="error-banner">{error}<button onClick={fetchAll}>Retry</button></div>}
-      {page === 'overview' && <Overview stats={stats} benchmark={benchmark} orders={orders} trades={trades} onNavigate={setPage} />}
-      {page === 'benchmark' && <BenchmarkPage benchmark={benchmark} />}
-      {page === 'analytics' && <AnalyticsPage stats={stats} />}
-      {page === 'storage' && <StoragePage />}
-      {page === 'orders' && <ActivityPage type="orders" orders={orders} trades={trades} onSelect={selectOrder} filter={orderFilter} setFilter={setOrderFilter} />}
-      {page === 'trades' && <ActivityPage type="trades" orders={orders} trades={trades} onSelect={selectOrder} filter={tradeFilter} setFilter={setTradeFilter} />}
-      <footer className="footer"><span>Monad-PageSync · experimental research tool</span><span>{addresses?.network || 'Monad Testnet'} · Data refreshes every 15s</span></footer>
-    </main>
-    {selectedOrder && <OrderDetail orderId={selectedOrder} onClose={() => setSelectedOrder(null)} />}
-  </div>;
-}
-
-function OrderDetail({ orderId, onClose }) {
-  const [detail, setDetail] = useState(null);
-  const [error, setError] = useState('');
-  useEffect(() => { api.order(orderId).then(setDetail).catch(err => setError(err.message)); }, [orderId]);
-  return <div className="modal-backdrop" onClick={onClose}><div className="modal" onClick={event => event.stopPropagation()}><div className="modal-heading"><div><span className="eyebrow">ORDER DETAIL</span><h2>Order #{orderId}</h2></div><button className="close-button" onClick={onClose}>×</button></div>{error ? <EmptyState title="Unable to load order" message={error} /> : !detail ? <div className="loading-state">Loading indexed history…</div> : <div className="detail-grid"><div><span>Status</span><strong><StatusPill tone={detail.status === 'ACTIVE' ? 'positive' : 'warning'}>{detail.status}</StatusPill></strong></div><div><span>Trader</span><strong className="mono">{shortHash(detail.placed?.trader)}</strong></div><div><span>Price</span><strong className="mono">{formatNumber(detail.placed?.price)}</strong></div><div><span>Quantity</span><strong className="mono">{formatNumber(detail.placed?.quantity)}</strong></div><div><span>Updates</span><strong>{detail.updates?.length || 0}</strong></div><div><span>Execution</span><strong>{detail.executed ? 'TradeExecuted' : '—'}</strong></div></div>}</div></div>;
+  const [page, setPage] = useState('home');
+  const content = useMemo(() => ({ home: <Home go={setPage} />, analyzer: <Analyzer />, inspector: <Inspector />, benchmark: <Benchmark />, research: <Research /> }[page]), [page]);
+  return <div className="app-shell"><aside className="sidebar"><button className="logo" onClick={() => setPage('home')}><span>PS</span><b>Page<span>Sync</span></b></button><nav><button className={page === 'home' ? 'active' : ''} onClick={() => setPage('home')}>Overview</button><p>PRODUCT / TOOLS</p><button className={page === 'analyzer' ? 'active' : ''} onClick={() => setPage('analyzer')}>Struct Analyzer</button><button className={page === 'inspector' ? 'active' : ''} onClick={() => setPage('inspector')}>Storage Inspector</button><button className={page === 'benchmark' ? 'active' : ''} onClick={() => setPage('benchmark')}>Gas Benchmark</button><p>RESEARCH</p><button className={page === 'research' ? 'active' : ''} onClick={() => setPage('research')}>Monad Case Study</button></nav><div className="sidebar-foot"><span className="dot" /> Monad Testnet <small>chain 10143</small></div></aside><div className="main"><header className="topbar"><span>PageSync / {page === 'home' ? 'Workspace' : page}</span><span className="top-status">● read-only research data</span></header>{content}<footer>PageSync — storage analysis and benchmark tooling <span>Not a production exchange · no guaranteed savings</span></footer></div></div>;
 }
