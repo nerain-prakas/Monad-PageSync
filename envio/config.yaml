@@ -10,7 +10,7 @@ networks:
     contracts:
       - name: NaiveOrderBook
         address:
-          - "0x0000000000000000000000000000000000000000"  # replace after deploy
+          - "0x9eDDb8B7612954014Af0fFA58dc9d93dB2C75d68"
         abi_file_path: ./abis/IOrderBook.json
         handler: ./src/handlers/OrderBookHandler.js
         events:
@@ -21,7 +21,7 @@ networks:
 
       - name: PageSyncOrderBook
         address:
-          - "0x0000000000000000000000000000000000000000"  # replace after deploy
+          - "0x5De52bC09A2A688f6c4615099465e9049CC83bC1"
         abi_file_path: ./abis/IOrderBook.json
         handler: ./src/handlers/OrderBookHandler.js
         events:

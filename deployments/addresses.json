@@ -1,6 +1,1 @@
-{
-  "naiveOrderBook": "0x0000000000000000000000000000000000000000",
-  "pageSyncOrderBook": "0x0000000000000000000000000000000000000000",
-  "network": "monad-testnet",
-  "note": "Run `forge script script/Deploy.s.sol --broadcast` to populate real addresses"
-}
+{"naiveOrderBook":"0x9eDDb8B7612954014Af0fFA58dc9d93dB2C75d68","pageSyncOrderBook":"0x5De52bC09A2A688f6c4615099465e9049CC83bC1"}
