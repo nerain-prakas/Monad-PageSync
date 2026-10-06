@@ -12,6 +12,8 @@ The product has four surfaces:
 - **Storage Inspector** — inspect the verified layouts of the deployed NaiveOrderBook and PageSyncOrderBook contracts.
 - **Gas Benchmark** — compare receipt-based gas measurements from the controlled Monad Testnet workload.
 - **Research** — explore the PageSync packed-storage case study and its limitations.
+- **Kuru Market** — read the live Monad Testnet MON-USDC top-of-book without confusing Kuru with the PageSync reference contract.
+- **Activity** — view order and trade events indexed by Envio when the optional backend and indexer are running.
 
 ## Architecture
 
@@ -20,10 +22,11 @@ React/Vite frontend
   ├── client-side struct analysis
   ├── known storage inspection
   ├── saved receipt benchmark results
+  ├── Kuru market top-of-book read
   └── research visualization
           │
           ├── Solidity contracts / Foundry scripts
-          └── Envio analytics (optional, when the indexer is running)
+          └── Node/Express API → Envio analytics (optional, when the indexer is running)
 ```
 
 Envio indexes order-book events for analytics. It does not measure individual SLOAD/SSTORE costs or replace transaction receipts as the benchmark source.
@@ -92,6 +95,11 @@ npm install
 npm start
 ```
 
+The Activity page calls the backend at `http://localhost:3001`. Start Envio separately
+from the `envio` directory after installing the Envio CLI and completing its project
+dependencies. If the backend or indexer is unavailable, the UI reports that state rather
+than presenting empty activity as verified history.
+
 ## Monad Testnet
 
 The deployed contracts are:
@@ -101,8 +109,22 @@ The deployed contracts are:
 
 Monad Testnet chain ID is `10143`. Keep `MONAD_RPC_URL` and `PRIVATE_KEY` in a local ignored `.env` file only. Never place wallet credentials in README files, source code, benchmark artifacts, or commits.
 
+### Kuru testnet workspace
+
+The Kuru workspace currently reads the documented MON-USDC market:
+
+- Market: `0xa241896A7Dbe8a550D2E5fF7A914bB1989ceD2D9`
+- Quote asset: USDC
+- Base asset: MON
+- Settlement model: Kuru margin account
+
+This first integration is intentionally read-only. Kuru order execution requires a funded
+margin account, token approvals, and verified SDK/contract interactions; connecting a wallet
+alone is not presented as sufficient to trade. The PageSync reference market continues to
+be used only for storage-optimization experiments.
+
 ## Limitations and roadmap
 
 PageSync is a developer benchmark/tool, not a production exchange. It does not handle real money, guarantee savings, or automatically rewrite deployed storage. Generic storage inspection requires a contract ABI and compiler storage layout; an address alone is not enough.
 
-Future work includes broader Solidity type support, more networks, generic ABI/layout inspection, saved analyses, optional wallet-authorized live benchmarks, and Envio-powered historical analytics.
+Future work includes broader Solidity type support, more networks, generic ABI/layout inspection, saved analyses, optional wallet-authorized live benchmarks, verified Kuru margin deposit and trade execution, deeper Kuru book data, and Envio-powered historical analytics.

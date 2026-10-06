@@ -22,6 +22,11 @@ const ORDER_BOOK_ABI = parseAbi([
 ]);
 const orderPlacedEvent = ORDER_BOOK_ABI.find((item) => item.type === 'event' && item.name === 'OrderPlaced');
 const publicClient = createPublicClient({ chain: MONAD, transport: http(MONAD_RPC) });
+const KURU_MARKET_ADDRESS = '0xa241896A7Dbe8a550D2E5fF7A914bB1989ceD2D9';
+const KURU_ABI = parseAbi([
+  'function bestBidAsk() view returns (uint256 bestBid, uint256 bestAsk)',
+]);
+const KURU_EMPTY_PRICE = (1n << 256n) - 1n;
 
 function useWallet() {
   const [account, setAccount] = useState();
@@ -246,6 +251,82 @@ function Research() {
   </Page>;
 }
 
+function KuruWorkspace({ wallet, go }) {
+  const [quote, setQuote] = useState();
+  const [marketError, setMarketError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const refreshMarket = async () => {
+    setLoading(true);
+    setMarketError('');
+    try {
+      const [bestBid, bestAsk] = await publicClient.readContract({
+        address: KURU_MARKET_ADDRESS,
+        abi: KURU_ABI,
+        functionName: 'bestBidAsk',
+      });
+      setQuote({
+        bestBid: bestBid === KURU_EMPTY_PRICE ? 'No resting orders' : bestBid.toString(),
+        bestAsk: bestAsk === KURU_EMPTY_PRICE ? 'No resting orders' : bestAsk.toString(),
+        updatedAt: new Date(),
+      });
+    } catch (error) {
+      setMarketError(error.shortMessage || error.message || 'Unable to read the Kuru market.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshMarket();
+  }, []);
+
+  return <Page title="Kuru Market Workspace" eyebrow="PRODUCT / ONCHAIN FINANCE" intro="Monitor the live Monad testnet MON-USDC market while PageSync keeps storage and gas evidence separate from the trading venue.">
+    <section className="trade-toolbar card">
+      <div><span className="label">KURU · MON / USDC</span><h2>Real market, explicit prerequisites</h2><p className="form-note">Kuru is the trading venue. PageSync’s deployed order book remains a storage-optimization reference implementation and is not used for Kuru settlement.</p></div>
+      <div className="network-actions">{!wallet.account ? <Button onClick={wallet.connect}>Connect Wallet</Button> : <span className="wallet-pill">{shortAddress(wallet.account)}</span>}{wallet.account && wallet.chainId !== MONAD_CHAIN_ID && <Button secondary onClick={wallet.switchNetwork}>Switch to Monad</Button>}<Button secondary onClick={refreshMarket} disabled={loading}>{loading ? 'Reading...' : 'Refresh market'}</Button></div>
+    </section>
+    {wallet.walletError && <div className="error-box">{wallet.walletError}</div>}
+    {wallet.account && wallet.chainId !== MONAD_CHAIN_ID && <div className="callout warning"><b>Monad Testnet required</b><span>Kuru’s documented testnet market is on chain 10143. Switch networks before using any future trading controls.</span><Button secondary onClick={wallet.switchNetwork}>Switch Network</Button></div>}
+    <div className="metric-grid"><Metric label="Market" value="MON / USDC" /><Metric label="Best bid" value={quote?.bestBid || '—'} /><Metric label="Best ask" value={quote?.bestAsk || '—'} /><Metric label="Network" value="Monad 10143" /></div>
+    {marketError && <div className="error-box">{marketError}</div>}
+    <div className="tool-grid">
+      <section className="card"><div className="card-head"><div><span className="label">TOP OF BOOK</span><h2>Current market quote</h2></div><span className={`chip ${quote ? 'green' : ''}`}>{quote ? 'live RPC read' : 'unavailable'}</span></div><div className="kuru-book"><div><span>BEST BID</span><strong>{quote?.bestBid || '—'}</strong><small>raw market contract units</small></div><div><span>BEST ASK</span><strong>{quote?.bestAsk || '—'}</strong><small>raw market contract units</small></div></div><p className="form-note">The quote is read directly from Kuru’s deployed order-book contract. Full depth and transaction execution require the Kuru SDK, margin-account funding, and token approvals.</p></section>
+      <section className="card"><div className="card-head"><div><span className="label">MARKET CONTRACT</span><h2>Kuru MON-USDC</h2></div><span className="chip">testnet</span></div><dl className="kuru-details"><dt>Market</dt><dd><code>{KURU_MARKET_ADDRESS}</code></dd><dt>Settlement</dt><dd>Kuru margin account</dd><dt>Quote asset</dt><dd>USDC</dd><dt>Base asset</dt><dd>MON</dd></dl><div className="actions"><a className="button secondary" href={`https://testnet.monadexplorer.com/address/${KURU_MARKET_ADDRESS}`} target="_blank" rel="noreferrer">View market ↗</a><Button secondary onClick={() => go('activity')}>Open indexed activity →</Button></div></section>
+    </div>
+    <section className="callout"><b>Trading status: read-only workspace</b><span>Before placing an order, a wallet must hold the required asset, deposit it into Kuru’s margin account, and approve the market flow. Trade execution will be added only after those contract interactions are verified end to end.</span></section>
+  </Page>;
+}
+
+function Activity() {
+  const [data, setData] = useState({ orders: [], trades: [], stats: null });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const refresh = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const responses = await Promise.all(['/orders?limit=20', '/trades?limit=20', '/stats'].map((path) => fetch(`http://localhost:3001${path}`)));
+      if (responses.some((response) => !response.ok)) throw new Error('The PageSync backend returned an error.');
+      const [orders, trades, stats] = await Promise.all(responses.map((response) => response.json()));
+      setData({ orders: orders.orders || [], trades: trades.trades || [], stats });
+    } catch (requestError) {
+      setError(`Envio activity is unavailable. Start the backend and Envio indexer to load historical data. (${requestError.message})`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { refresh(); }, []);
+  const envio = data.stats?.envio;
+  return <Page title="Activity & Analytics" eyebrow="DATA / ENVIO INDEXED ACTIVITY" intro="Review indexed PageSync order activity and trades without confusing event history with receipt-level gas measurement.">
+    <section className="trade-toolbar card"><div><span className="label">INDEXED DATA LAYER</span><h2>Envio activity</h2><p className="form-note">Events are indexed from the deployed reference contracts. Gas figures still come from transaction receipts and the benchmark artifacts.</p></div><Button secondary onClick={refresh} disabled={loading}>{loading ? 'Loading...' : 'Refresh activity'}</Button></section>
+    {error && <div className="error-box">{error}</div>}
+    <div className="metric-grid"><Metric label="Envio status" value={envio?.envioAvailable ? 'Connected' : 'Not running'} /><Metric label="Orders placed" value={envio?.ordersPlaced ?? '—'} /><Metric label="Trades executed" value={envio?.tradesExecuted ?? '—'} /><Metric label="Indexed orders loaded" value={data.orders.length} /></div>
+    <section className="card"><div className="card-head"><div><span className="label">RECENT ORDER ACTIVITY</span><h2>OrderPlaced events</h2></div><span className="muted">latest 20</span></div>{data.orders.length ? <div className="table-wrap"><table><thead><tr><th>Order</th><th>Side</th><th>Price</th><th>Quantity</th><th>Contract</th><th>Transaction</th></tr></thead><tbody>{data.orders.map((order) => <tr key={order.id}><td><code>#{order.orderId}</code></td><td>{Number(order.side) === 0 ? 'BUY' : 'SELL'}</td><td>{order.price}</td><td>{order.quantity}</td><td><code>{shortAddress(order.contractAddress)}</code></td><td><a href={`https://testnet.monadexplorer.com/tx/${order.transactionHash}`} target="_blank" rel="noreferrer">View ↗</a></td></tr>)}</tbody></table></div> : <p className="empty-state">No indexed orders are available.</p>}</section>
+    <section className="card"><div className="card-head"><div><span className="label">RECENT TRADES</span><h2>TradeExecuted events</h2></div><span className="muted">latest 20</span></div>{data.trades.length ? <div className="table-wrap"><table><thead><tr><th>Order</th><th>Price</th><th>Quantity</th><th>Transaction</th></tr></thead><tbody>{data.trades.map((trade) => <tr key={trade.id}><td><code>#{trade.orderId}</code></td><td>{trade.price}</td><td>{trade.quantity}</td><td><a href={`https://testnet.monadexplorer.com/tx/${trade.transactionHash}`} target="_blank" rel="noreferrer">View ↗</a></td></tr>)}</tbody></table></div> : <p className="empty-state">No indexed trades are available.</p>}</section>
+  </Page>;
+}
+
 function shortAddress(address) {
   return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
 }
@@ -371,6 +452,6 @@ function Page({ title, eyebrow, intro, children, home }) { return <main classNam
 export default function App() {
   const [page, setPage] = useState('home');
   const wallet = useWallet();
-  const content = useMemo(() => ({ home: <Home go={setPage} />, trade: <Trade wallet={wallet} go={setPage} />, analyzer: <Analyzer />, inspector: <Inspector />, benchmark: <Benchmark />, research: <Research /> }[page]), [page, wallet]);
-  return <div className="app-shell"><aside className="sidebar"><button className="logo" onClick={() => setPage('home')}><span>PS</span><b>Page<span>Sync</span></b></button><nav><button className={page === 'home' ? 'active' : ''} onClick={() => setPage('home')}>Overview</button><button className={page === 'trade' ? 'active live-nav' : 'live-nav'} onClick={() => setPage('trade')}>Optimization Demo <span>LIVE</span></button><p>PRODUCT / TOOLS</p><button className={page === 'analyzer' ? 'active' : ''} onClick={() => setPage('analyzer')}>Struct Analyzer</button><button className={page === 'inspector' ? 'active' : ''} onClick={() => setPage('inspector')}>Storage Inspector</button><button className={page === 'benchmark' ? 'active' : ''} onClick={() => setPage('benchmark')}>Gas Benchmark</button><p>RESEARCH</p><button className={page === 'research' ? 'active' : ''} onClick={() => setPage('research')}>Monad Case Study</button></nav><div className="sidebar-foot"><span className="dot" /> Monad Testnet <small>chain 10143</small></div></aside><div className="main"><header className="topbar"><span>PageSync / {page === 'home' ? 'Workspace' : page}</span><span className="top-status">{wallet.account ? `● ${shortAddress(wallet.account)}` : '● connect wallet to inspect'}</span></header>{content}<footer>PageSync — smart contract storage optimizer <span>Analyze · Optimize · Measure · Verify</span></footer></div></div>;
+  const content = useMemo(() => ({ home: <Home go={setPage} />, trade: <Trade wallet={wallet} go={setPage} />, kuru: <KuruWorkspace wallet={wallet} go={setPage} />, activity: <Activity />, analyzer: <Analyzer />, inspector: <Inspector />, benchmark: <Benchmark />, research: <Research /> }[page]), [page, wallet]);
+  return <div className="app-shell"><aside className="sidebar"><button className="logo" onClick={() => setPage('home')}><span>PS</span><b>Page<span>Sync</span></b></button><nav><button className={page === 'home' ? 'active' : ''} onClick={() => setPage('home')}>Overview</button><button className={page === 'kuru' ? 'active live-nav' : 'live-nav'} onClick={() => setPage('kuru')}>Kuru Market <span>LIVE</span></button><button className={page === 'activity' ? 'active' : ''} onClick={() => setPage('activity')}>Activity</button><p>PRODUCT / TOOLS</p><button className={page === 'trade' ? 'active' : ''} onClick={() => setPage('trade')}>Optimization Demo</button><button className={page === 'analyzer' ? 'active' : ''} onClick={() => setPage('analyzer')}>Struct Analyzer</button><button className={page === 'inspector' ? 'active' : ''} onClick={() => setPage('inspector')}>Storage Inspector</button><button className={page === 'benchmark' ? 'active' : ''} onClick={() => setPage('benchmark')}>Gas Benchmark</button><p>RESEARCH</p><button className={page === 'research' ? 'active' : ''} onClick={() => setPage('research')}>Monad Case Study</button></nav><div className="sidebar-foot"><span className="dot" /> Monad Testnet <small>chain 10143</small></div></aside><div className="main"><header className="topbar"><span>PageSync / {page === 'home' ? 'Workspace' : page}</span><span className="top-status">{wallet.account ? `● ${shortAddress(wallet.account)}` : '● connect wallet to inspect'}</span></header>{content}<footer>PageSync — smart contract storage optimizer <span>Analyze · Optimize · Measure · Verify</span></footer></div></div>;
 }
