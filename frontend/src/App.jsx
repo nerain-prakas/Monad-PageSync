@@ -1,6 +1,100 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPublicClient, createWalletClient, custom, defineChain, http, parseAbi } from 'viem';
 import './App.css';
 import StorageBenchmark3D from './components/StorageBenchmark3D';
+
+const MONAD_CHAIN_ID = 10143;
+const MONAD_RPC = 'https://testnet-rpc.monad.xyz';
+const MONAD = defineChain({
+  id: MONAD_CHAIN_ID,
+  name: 'Monad Testnet',
+  nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
+  rpcUrls: { default: { http: [MONAD_RPC] } },
+});
+const PAGE_SYNC_ADDRESS = '0x5De52bC09A2A688f6c4615099465e9049CC83bC1';
+const ORDER_BOOK_ABI = parseAbi([
+  'function placeOrder(uint256 orderId, uint256 price, uint256 quantity, uint8 side)',
+  'function updateOrder(uint256 orderId, uint256 newPrice, uint256 newQuantity)',
+  'function cancelOrder(uint256 orderId)',
+  'function executeTrade(uint256 orderId)',
+  'function getOrder(uint256 orderId) view returns (address trader, uint256 price, uint256 quantity, uint8 side, uint8 status)',
+  'event OrderPlaced(uint256 indexed orderId, address indexed trader, uint256 price, uint256 quantity, uint8 side)',
+]);
+const orderPlacedEvent = ORDER_BOOK_ABI.find((item) => item.type === 'event' && item.name === 'OrderPlaced');
+const publicClient = createPublicClient({ chain: MONAD, transport: http(MONAD_RPC) });
+
+function useWallet() {
+  const [account, setAccount] = useState();
+  const [chainId, setChainId] = useState();
+  const [walletClient, setWalletClient] = useState();
+  const [walletError, setWalletError] = useState('');
+
+  useEffect(() => {
+    const provider = window.ethereum;
+    if (!provider) return undefined;
+    const sync = async () => {
+      const [accounts, currentChain] = await Promise.all([
+        provider.request({ method: 'eth_accounts' }),
+        provider.request({ method: 'eth_chainId' }),
+      ]);
+      setAccount(accounts[0]);
+      setChainId(Number(currentChain));
+      if (accounts[0]) setWalletClient(createWalletClient({ account: accounts[0], chain: MONAD, transport: custom(provider) }));
+    };
+    sync().catch(() => setWalletError('Unable to read wallet state.'));
+    const onAccountsChanged = ([nextAccount]) => {
+      setAccount(nextAccount);
+      setWalletClient(nextAccount ? createWalletClient({ account: nextAccount, chain: MONAD, transport: custom(provider) }) : undefined);
+    };
+    const onChainChanged = (nextChain) => setChainId(Number(nextChain));
+    provider.on?.('accountsChanged', onAccountsChanged);
+    provider.on?.('chainChanged', onChainChanged);
+    return () => {
+      provider.removeListener?.('accountsChanged', onAccountsChanged);
+      provider.removeListener?.('chainChanged', onChainChanged);
+    };
+  }, []);
+
+  const connect = async () => {
+    setWalletError('');
+    if (!window.ethereum) {
+      setWalletError('No injected wallet found. Install MetaMask or another EVM wallet.');
+      return;
+    }
+    try {
+      const [nextAccount, nextChain] = await Promise.all([
+        window.ethereum.request({ method: 'eth_requestAccounts' }),
+        window.ethereum.request({ method: 'eth_chainId' }),
+      ]);
+      const next = nextAccount[0];
+      setAccount(next);
+      setChainId(Number(nextChain));
+      setWalletClient(createWalletClient({ account: next, chain: MONAD, transport: custom(window.ethereum) }));
+    } catch (error) {
+      setWalletError(error.shortMessage || error.message || 'Wallet connection was rejected.');
+    }
+  };
+
+  const switchNetwork = async () => {
+    if (!window.ethereum) return;
+    try {
+      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x279f' }] });
+      setChainId(MONAD_CHAIN_ID);
+    } catch (error) {
+      if (error.code !== 4902) {
+        setWalletError(error.shortMessage || error.message || 'Unable to switch network.');
+        return;
+      }
+      await window.ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [{ chainId: '0x279f', chainName: MONAD.name, nativeCurrency: MONAD.nativeCurrency, rpcUrls: [MONAD_RPC], blockExplorerUrls: ['https://testnet.monadexplorer.com'] }],
+      });
+      setChainId(MONAD_CHAIN_ID);
+    }
+  };
+
+  return { account, chainId, walletClient, walletError, connect, switchNetwork };
+}
 
 const CONTRACTS = {
   NaiveOrderBook: {
@@ -84,8 +178,8 @@ function analyzeStruct(source) {
 const format = (value) => Number(value).toLocaleString();
 const reduction = (naive, packed) => ((naive - packed) / naive * 100).toFixed(2);
 
-function Button({ children, onClick, secondary = false }) {
-  return <button className={secondary ? 'button secondary' : 'button'} onClick={onClick}>{children}</button>;
+function Button({ children, onClick, secondary = false, disabled = false }) {
+  return <button className={secondary ? 'button secondary' : 'button'} onClick={onClick} disabled={disabled}>{children}</button>;
 }
 
 function Analyzer() {
@@ -152,8 +246,123 @@ function Research() {
   </Page>;
 }
 
+function shortAddress(address) {
+  return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
+}
+
+function Trade({ wallet, go }) {
+  const [side, setSide] = useState(0);
+  const [price, setPrice] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [orders, setOrders] = useState([]);
+  const [editing, setEditing] = useState();
+  const [editPrice, setEditPrice] = useState('');
+  const [editQuantity, setEditQuantity] = useState('');
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [lastTx, setLastTx] = useState();
+  const [history, setHistory] = useState([]);
+
+  const refresh = async () => {
+    setError('');
+    try {
+      const latestBlock = await publicClient.getBlockNumber();
+      const fromBlock = latestBlock > 10_000n ? latestBlock - 10_000n : 0n;
+      const chunkSize = 100n;
+      const logs = [];
+      for (let cursor = fromBlock; cursor <= latestBlock; cursor += chunkSize) {
+        const toBlock = cursor + chunkSize - 1n > latestBlock ? latestBlock : cursor + chunkSize - 1n;
+        logs.push(...await publicClient.getLogs({ address: PAGE_SYNC_ADDRESS, event: orderPlacedEvent, fromBlock: cursor, toBlock }));
+      }
+      const uniqueIds = [...new Set(logs.map((log) => log.args.orderId.toString()))];
+      const nextOrders = await Promise.all(uniqueIds.map(async (id) => {
+        try {
+          const [trader, currentPrice, currentQuantity, currentSide, status] = await publicClient.readContract({
+            address: PAGE_SYNC_ADDRESS, abi: ORDER_BOOK_ABI, functionName: 'getOrder', args: [BigInt(id)],
+          });
+          return { id, trader, price: currentPrice.toString(), quantity: currentQuantity.toString(), side: Number(currentSide), status: Number(status) };
+        } catch {
+          return null;
+        }
+      }));
+      setOrders(nextOrders.filter(Boolean).reverse());
+    } catch (refreshError) {
+      setError(refreshError.shortMessage || refreshError.message || 'Unable to load orders from Monad Testnet.');
+    }
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  const transact = async (operation, functionName, args, orderId) => {
+    if (!wallet.walletClient || wallet.chainId !== MONAD_CHAIN_ID) return;
+    setBusy(operation);
+    setError('');
+    try {
+      const hash = await wallet.walletClient.writeContract({ address: PAGE_SYNC_ADDRESS, abi: ORDER_BOOK_ABI, functionName, args, account: wallet.account });
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      const gasUsed = receipt.gasUsed.toString();
+      const transaction = { hash, gasUsed, operation, orderId: orderId?.toString() || '—', status: 'Confirmed' };
+      setLastTx(transaction);
+      setHistory((previous) => [transaction, ...previous].slice(0, 10));
+      await refresh();
+    } catch (transactionError) {
+      setError(transactionError.shortMessage || transactionError.message || 'Transaction failed.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const place = () => {
+    try {
+      if (!price || !quantity || BigInt(price) <= 0n || BigInt(quantity) <= 0n) throw new Error('Price and quantity must be positive integers.');
+      const orderId = BigInt(Date.now());
+      transact('place', 'placeOrder', [orderId, BigInt(price), BigInt(quantity), side], orderId);
+      setPrice('');
+      setQuantity('');
+    } catch (placeError) { setError(placeError.message); }
+  };
+
+  const update = (order) => {
+    try {
+      if (!editPrice || !editQuantity || BigInt(editPrice) <= 0n || BigInt(editQuantity) <= 0n) throw new Error('Price and quantity must be positive integers.');
+      transact('update', 'updateOrder', [BigInt(order.id), BigInt(editPrice), BigInt(editQuantity)], BigInt(order.id));
+      setEditing();
+    } catch (updateError) { setError(updateError.message); }
+  };
+
+  const canTrade = wallet.account && wallet.chainId === MONAD_CHAIN_ID;
+  const active = orders.filter((order) => order.status === 0);
+  const buys = active.filter((order) => order.side === 0).sort((a, b) => Number(b.price) - Number(a.price));
+  const sells = active.filter((order) => order.side === 1).sort((a, b) => Number(a.price) - Number(b.price));
+  const mine = wallet.account ? orders.filter((order) => order.trader.toLowerCase() === wallet.account.toLowerCase()) : [];
+  const statusName = ['OPEN', 'CANCELLED', 'EXECUTED'];
+
+  return <Page title="PageSync — Smart Contract Storage Optimizer" eyebrow="ANALYZE → OPTIMIZE → MEASURE → VERIFY" intro="Use a real Monad Testnet transaction to see how PageSync packs an order into fewer storage words. The order book is the workload; storage optimization is the product.">
+    <section className="trade-toolbar card">
+      <div><span className="label">LIVE STORAGE OPTIMIZATION DEMO</span><h2>On-Chain Optimization Demo</h2><p className="form-note">Create a real order and inspect how PageSync stores it.</p></div>
+      <div className="network-actions">{!wallet.account ? <Button onClick={wallet.connect}>Connect Wallet</Button> : <span className="wallet-pill">{shortAddress(wallet.account)}</span>}{wallet.chainId !== MONAD_CHAIN_ID && wallet.account && <Button secondary onClick={wallet.switchNetwork}>Switch to Monad</Button>}<Button secondary onClick={refresh}>Refresh</Button></div>
+    </section>
+    {wallet.walletError && <div className="error-box">{wallet.walletError}</div>}
+    {wallet.account && wallet.chainId !== MONAD_CHAIN_ID && <div className="callout warning"><b>Please switch to Monad Testnet</b><span>Your wallet is on chain {wallet.chainId}; transactions are intentionally disabled until chain 10143 is selected.</span><Button secondary onClick={wallet.switchNetwork}>Switch Network</Button></div>}
+    <section className="storage-summary"><div className="storage-summary-intro"><span className="label">PAGESYNC STORAGE OPTIMIZATION</span><h2>Conventional Order → PageSync PackedOrder</h2><p>Same logical order, fewer storage words. This is the layout written by the deployed contract.</p></div><div className="layout-compare"><div><b>BEFORE · CONVENTIONAL</b><span>Slot 0 · trader</span><span>Slot 1 · price</span><span>Slot 2 · quantity</span><span>Slot 3 · side / status</span><strong>4 storage words</strong></div><div className="compare-arrow">→</div><div className="after"><b>AFTER · PAGESYNC</b><span>Slot 0 · trader + price</span><span>Slot 1 · quantity + side + status</span><strong>2 storage words</strong></div></div></section>
+    {lastTx && <section className="tx-banner"><div><b>Transaction Confirmed ✓</b><span>Operation: {lastTx.operation}</span><span>Gas Used: {format(lastTx.gasUsed)}</span></div><div><span className="muted">PageSync PackedOrder · 2 storage words</span><a href={`https://testnet.monadexplorer.com/tx/${lastTx.hash}`} target="_blank" rel="noreferrer">View receipt ↗</a></div></section>}
+    {error && <div className="error-box">{error}</div>}
+    <div className="orderbook-grid">
+      <section className="card"><div className="card-head"><div><span className="label">TRANSACTION WORKLOAD</span><h2>Create a real order</h2></div><span className="chip green">Monad Testnet</span></div><div className="side-toggle"><button className={side === 0 ? 'active' : ''} onClick={() => setSide(0)}>BUY</button><button className={side === 1 ? 'active sell' : ''} onClick={() => setSide(1)}>SELL</button></div><label>Price<input inputMode="numeric" value={price} onChange={(event) => setPrice(event.target.value.replace(/\D/g, ''))} placeholder="1000" /></label><label>Quantity<input inputMode="numeric" value={quantity} onChange={(event) => setQuantity(event.target.value.replace(/\D/g, ''))} placeholder="10" /></label><Button onClick={place} disabled={!canTrade || busy === 'place'}>{busy === 'place' ? 'Confirming...' : 'Write to PageSync →'}</Button><p className="form-note">BUY / SELL are parameters of the existing order-book workload, not a separate trading product.</p><div className="contract-secondary"><span>Monad Testnet</span><code>PageSyncOrderBook</code><a href={`https://testnet.monadexplorer.com/address/${PAGE_SYNC_ADDRESS}`} target="_blank" rel="noreferrer">View Contract ↗</a></div></section>
+      <section className="card"><div className="card-head"><div><span className="label">RECORDED EVIDENCE</span><h2>Gas comparison</h2></div><span className="chip">not a live saving claim</span></div><div className="gas-evidence"><div><b>YOUR LIVE TRANSACTION</b><strong>{lastTx ? `${format(lastTx.gasUsed)} gas` : '—'}</strong><span>PageSync receipt</span></div><div><b>RECORDED BENCHMARK</b><span>Naive median · {format(RESULTS[0][1])} gas</span><span>PageSync median · {format(RESULTS[0][2])} gas</span><strong>{reduction(RESULTS[0][1], RESULTS[0][2])}% lower</strong></div></div><p className="form-note">Recorded benchmark comparison. It does not claim that your live transaction saved this exact amount.</p></section>
+    </div>
+    <section className="card my-orders"><div className="card-head"><div><span className="label">WALLET-SCOPED OPERATIONS</span><h2>Your PageSync Transactions</h2></div><span className="muted">{history.length} recent operation{history.length === 1 ? '' : 's'}</span></div>{history.length ? <div className="table-wrap"><table><thead><tr><th>Operation</th><th>Order ID</th><th>Gas Used</th><th>Status</th><th>Receipt</th></tr></thead><tbody>{history.map((item, index) => <tr key={`${item.hash}-${index}`}><td>{item.operation.toUpperCase()}</td><td><code>#{item.orderId}</code></td><td>{format(item.gasUsed)} gas</td><td><span className="status status-0">{item.status}</span></td><td><a href={`https://testnet.monadexplorer.com/tx/${item.hash}`} target="_blank" rel="noreferrer">View ↗</a></td></tr>)}</tbody></table></div> : <p className="empty-state">Confirmed PageSync operations will appear here after you connect a wallet and write a transaction.</p>}</section>
+    <section className="card order-state"><div className="card-head"><div><span className="label">CONTRACT STATE</span><h2>Orders represented by PageSync</h2></div><span className="muted">{mine.length} owned · {active.length} active workload orders</span></div><div className="book-columns"><OrderTable title="SELL WORKLOAD" rows={sells} empty="No active sell orders" /><OrderTable title="BUY WORKLOAD" rows={buys} empty="No active buy orders" /></div>{wallet.account && mine.length > 0 && <div className="table-wrap state-table"><table><thead><tr><th>Order ID</th><th>Side</th><th>Status</th><th>Contract actions</th></tr></thead><tbody>{mine.map((order) => <tr key={order.id}><td><code>#{order.id}</code></td><td>{order.side === 0 ? 'BUY' : 'SELL'}</td><td><span className={`status status-${order.status}`}>{statusName[order.status]}</span></td><td>{order.status === 0 && <div className="row-actions"><button onClick={() => { setEditing(order.id); setEditPrice(order.price); setEditQuantity(order.quantity); }}>Update</button><button onClick={() => transact('cancel', 'cancelOrder', [BigInt(order.id)], BigInt(order.id))} disabled={!canTrade || !!busy}>Cancel</button><button onClick={() => transact('execute', 'executeTrade', [BigInt(order.id)], BigInt(order.id))} disabled={!canTrade || !!busy}>Execute</button>{editing === order.id && <span className="inline-edit"><input value={editPrice} onChange={(event) => setEditPrice(event.target.value.replace(/\D/g, ''))} placeholder="price" /><input value={editQuantity} onChange={(event) => setEditQuantity(event.target.value.replace(/\D/g, ''))} placeholder="qty" /><button onClick={() => update(order)}>Save</button><button onClick={() => setEditing()}>Close</button></span>}</div>}</td></tr>)}</tbody></table></div>}</section>
+    <section className="card storage-proof"><span className="label">HOW PAGESYNC STORED IT</span><h2>PageSync PackedOrder</h2><p>After a confirmed operation, the deployed contract decodes the order as two packed storage words. <strong>Slot 0:</strong> trader + price + reserved. <strong>Slot 1:</strong> quantity + side + status.</p><div className="metric-row"><Metric label="Storage words / order" value="2" /><Metric label="Packed fields" value="5" /><Metric label="Conventional layout" value="4 words" /></div><div className="actions"><Button secondary onClick={() => go('inspector')}>Inspect Storage</Button><Button secondary onClick={() => go('analyzer')}>Compare Layout</Button></div></section>
+  </Page>;
+}
+
+function OrderTable({ title, rows, empty }) {
+  return <div className="book-table"><h3>{title}</h3><div className="book-head"><span>Price</span><span>Quantity</span></div>{rows.length ? rows.map((order) => <div className="book-row" key={order.id}><span>{order.price}</span><span>{order.quantity}</span></div>) : <p className="empty-state">{empty}</p>}</div>;
+}
+
 function Home({ go }) {
-  return <Page home><section className="hero"><div><span className="label">PAGESYNC / DEVELOPER TOOLKIT</span><h1>Smart Contract<br /><em>Storage Optimizer</em></h1><p>Analyze Solidity storage layouts, inspect contract storage, and benchmark real gas usage.</p><div className="actions"><Button onClick={() => go('analyzer')}>Analyze Solidity struct →</Button><Button secondary onClick={() => go('inspector')}>Inspect contract</Button><Button secondary onClick={() => go('benchmark')}>Benchmark gas</Button></div></div><div className="hero-art"><div className="art-grid">{Array.from({ length: 16 }, (_, index) => <i className={index % 3 === 0 ? 'lit' : ''} key={index} />)}</div><span>storage words / packed layout</span></div></section><div className="feature-grid"><Feature number="01" title="Struct Analyzer" text="Map supported Solidity types to slots, offsets, and packing groups." onClick={() => go('analyzer')} /><Feature number="02" title="Storage Inspector" text="Explore the verified layouts behind the deployed research contracts." onClick={() => go('inspector')} /><Feature number="03" title="Gas Benchmark" text="Compare receipt gas from the controlled Monad Testnet experiment." onClick={() => go('benchmark')} /></div></Page>;
+  return <Page home><section className="hero"><div><span className="label">PAGESYNC / SMART CONTRACT STORAGE OPTIMIZER</span><h1>Analyze. Optimize.<br /><em>Measure. Verify.</em></h1><p>Understand Solidity storage layouts, compare compact representations, and verify the result with a real Monad Testnet transaction.</p><div className="actions"><Button onClick={() => go('trade')}>Open optimization demo →</Button><Button secondary onClick={() => go('analyzer')}>Analyze Solidity struct</Button><Button secondary onClick={() => go('benchmark')}>Compare gas</Button></div></div><div className="hero-art"><div className="art-grid">{Array.from({ length: 16 }, (_, index) => <i className={index % 3 === 0 ? 'lit' : ''} key={index} />)}</div><span>analyze / optimize / measure / verify</span></div></section><div className="feature-grid"><Feature number="01" title="Struct Analyzer" text="Map Solidity types to storage slots, offsets, and packing groups." onClick={() => go('analyzer')} /><Feature number="02" title="On-Chain Optimization Demo" text="Create a real order and inspect how PageSync writes its compact layout." onClick={() => go('trade')} /><Feature number="03" title="Receipt Evidence" text="Compare actual gas from Monad Testnet against conventional storage benchmarks." onClick={() => go('benchmark')} /></div></Page>;
 }
 
 function Feature({ number, title, text, onClick }) { return <button className="feature" onClick={onClick}><span>{number}</span><h2>{title} ↗</h2><p>{text}</p></button>; }
@@ -161,6 +370,7 @@ function Page({ title, eyebrow, intro, children, home }) { return <main classNam
 
 export default function App() {
   const [page, setPage] = useState('home');
-  const content = useMemo(() => ({ home: <Home go={setPage} />, analyzer: <Analyzer />, inspector: <Inspector />, benchmark: <Benchmark />, research: <Research /> }[page]), [page]);
-  return <div className="app-shell"><aside className="sidebar"><button className="logo" onClick={() => setPage('home')}><span>PS</span><b>Page<span>Sync</span></b></button><nav><button className={page === 'home' ? 'active' : ''} onClick={() => setPage('home')}>Overview</button><p>PRODUCT / TOOLS</p><button className={page === 'analyzer' ? 'active' : ''} onClick={() => setPage('analyzer')}>Struct Analyzer</button><button className={page === 'inspector' ? 'active' : ''} onClick={() => setPage('inspector')}>Storage Inspector</button><button className={page === 'benchmark' ? 'active' : ''} onClick={() => setPage('benchmark')}>Gas Benchmark</button><p>RESEARCH</p><button className={page === 'research' ? 'active' : ''} onClick={() => setPage('research')}>Monad Case Study</button></nav><div className="sidebar-foot"><span className="dot" /> Monad Testnet <small>chain 10143</small></div></aside><div className="main"><header className="topbar"><span>PageSync / {page === 'home' ? 'Workspace' : page}</span><span className="top-status">● read-only research data</span></header>{content}<footer>PageSync — storage analysis and benchmark tooling <span>Not a production exchange · no guaranteed savings</span></footer></div></div>;
+  const wallet = useWallet();
+  const content = useMemo(() => ({ home: <Home go={setPage} />, trade: <Trade wallet={wallet} go={setPage} />, analyzer: <Analyzer />, inspector: <Inspector />, benchmark: <Benchmark />, research: <Research /> }[page]), [page, wallet]);
+  return <div className="app-shell"><aside className="sidebar"><button className="logo" onClick={() => setPage('home')}><span>PS</span><b>Page<span>Sync</span></b></button><nav><button className={page === 'home' ? 'active' : ''} onClick={() => setPage('home')}>Overview</button><button className={page === 'trade' ? 'active live-nav' : 'live-nav'} onClick={() => setPage('trade')}>Optimization Demo <span>LIVE</span></button><p>PRODUCT / TOOLS</p><button className={page === 'analyzer' ? 'active' : ''} onClick={() => setPage('analyzer')}>Struct Analyzer</button><button className={page === 'inspector' ? 'active' : ''} onClick={() => setPage('inspector')}>Storage Inspector</button><button className={page === 'benchmark' ? 'active' : ''} onClick={() => setPage('benchmark')}>Gas Benchmark</button><p>RESEARCH</p><button className={page === 'research' ? 'active' : ''} onClick={() => setPage('research')}>Monad Case Study</button></nav><div className="sidebar-foot"><span className="dot" /> Monad Testnet <small>chain 10143</small></div></aside><div className="main"><header className="topbar"><span>PageSync / {page === 'home' ? 'Workspace' : page}</span><span className="top-status">{wallet.account ? `● ${shortAddress(wallet.account)}` : '● connect wallet to inspect'}</span></header>{content}<footer>PageSync — smart contract storage optimizer <span>Analyze · Optimize · Measure · Verify</span></footer></div></div>;
 }
