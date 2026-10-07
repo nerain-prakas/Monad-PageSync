@@ -29,3 +29,13 @@ networks:
           - event: "OrderUpdated(uint256 indexed orderId, uint256 price, uint256 quantity)"
           - event: "OrderCancelled(uint256 indexed orderId)"
           - event: "TradeExecuted(uint256 indexed orderId, uint256 price, uint256 quantity)"
+
+      - name: KuruMarket
+        address:
+          - "0xa241896A7Dbe8a550D2E5fF7A914bB1989ceD2D9"
+        abi_file_path: ./abis/KuruMarket.json
+        handler: ./src/handlers/KuruMarketHandler.js
+        events:
+          - event: "OrderCreated(uint40 orderId, address owner, uint96 size, uint32 price, bool isBuy)"
+          - event: "Trade(uint40 orderId, address makerAddress, bool isBuy, uint256 price, uint96 updatedSize, address takerAddress, address txOrigin, uint96 filledSize)"
+          - event: "OrdersCanceled(uint40[] orderId, address owner)"

@@ -43,3 +43,41 @@ type TradeExecuted {
   blockTimestamp    Int!
   transactionHash   String!
 }
+
+type KuruOrderCreated {
+  id String!
+  orderId String!
+  owner String!
+  size String!
+  price String!
+  isBuy Boolean!
+  marketAddress String!
+  blockNumber Int!
+  blockTimestamp Int!
+  transactionHash String!
+}
+
+type KuruTrade {
+  id String!
+  orderId String!
+  makerAddress String!
+  takerAddress String!
+  price String!
+  updatedSize String!
+  filledSize String!
+  isBuy Boolean!
+  marketAddress String!
+  blockNumber Int!
+  blockTimestamp Int!
+  transactionHash String!
+}
+
+type KuruOrdersCanceled {
+  id String!
+  orderIds String!
+  owner String!
+  marketAddress String!
+  blockNumber Int!
+  blockTimestamp Int!
+  transactionHash String!
+}

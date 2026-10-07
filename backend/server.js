@@ -327,6 +327,41 @@ app.get('/trades', asyncRoute(async (req, res) => {
 }));
 
 // ---------------------------------------------------------------------------
+// GET /kuru/activity — Kuru events kept separate from PageSync events
+// ---------------------------------------------------------------------------
+
+const KURU_ACTIVITY_QUERY = `
+  query GetKuruActivity($limit: Int!) {
+    KuruOrderCreated(order_by: { db_write_timestamp: desc }, limit: $limit) {
+      id orderId owner size price isBuy blockNumber blockTimestamp transactionHash marketAddress
+    }
+    KuruTrade(order_by: { db_write_timestamp: desc }, limit: $limit) {
+      id orderId makerAddress takerAddress price updatedSize filledSize isBuy blockNumber blockTimestamp transactionHash marketAddress
+    }
+    KuruOrdersCanceled(order_by: { db_write_timestamp: desc }, limit: $limit) {
+      id orderIds owner blockNumber blockTimestamp transactionHash marketAddress
+    }
+  }
+`;
+
+app.get('/kuru/activity', asyncRoute(async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit || '50', 10), 500);
+  try {
+    const result = await queryEnvio(KURU_ACTIVITY_QUERY, { limit });
+    if (result.errors) return res.status(502).json({ error: 'Envio query error', details: result.errors });
+    res.json({
+      orders: result.data?.KuruOrderCreated || [],
+      trades: result.data?.KuruTrade || [],
+      cancellations: result.data?.KuruOrdersCanceled || [],
+      limit,
+    });
+  } catch (err) {
+    console.warn('[/kuru/activity] Envio unavailable:', err.message);
+    res.json({ orders: [], trades: [], cancellations: [], warning: 'Kuru Envio indexing is not reachable.', limit });
+  }
+}));
+
+// ---------------------------------------------------------------------------
 // GET /stats  — aggregate statistics combining benchmark + Envio counts
 // ---------------------------------------------------------------------------
 
@@ -336,6 +371,9 @@ const STATS_QUERY = `
     OrderUpdated_aggregate  { aggregate { count } }
     OrderCancelled_aggregate{ aggregate { count } }
     TradeExecuted_aggregate { aggregate { count } }
+    KuruOrderCreated_aggregate { aggregate { count } }
+    KuruTrade_aggregate { aggregate { count } }
+    KuruOrdersCanceled_aggregate { aggregate { count } }
   }
 `;
 
@@ -348,6 +386,9 @@ app.get('/stats', asyncRoute(async (req, res) => {
     ordersUpdated  : 0,
     ordersCancelled: 0,
     tradesExecuted : 0,
+    kuruOrders     : 0,
+    kuruTrades     : 0,
+    kuruCancellations: 0,
     envioAvailable : false,
   };
 
@@ -359,6 +400,9 @@ app.get('/stats', asyncRoute(async (req, res) => {
         ordersUpdated  : result.data?.OrderUpdated_aggregate?.aggregate?.count   || 0,
         ordersCancelled: result.data?.OrderCancelled_aggregate?.aggregate?.count || 0,
         tradesExecuted : result.data?.TradeExecuted_aggregate?.aggregate?.count  || 0,
+        kuruOrders     : result.data?.KuruOrderCreated_aggregate?.aggregate?.count || 0,
+        kuruTrades     : result.data?.KuruTrade_aggregate?.aggregate?.count || 0,
+        kuruCancellations: result.data?.KuruOrdersCanceled_aggregate?.aggregate?.count || 0,
         envioAvailable : true,
       };
     }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createPublicClient, createWalletClient, custom, defineChain, http, parseAbi } from 'viem';
+import { createPublicClient, createWalletClient, custom, decodeEventLog, defineChain, formatUnits, http, parseAbi, parseUnits } from 'viem';
 import './App.css';
 import StorageBenchmark3D from './components/StorageBenchmark3D';
 
@@ -25,8 +25,30 @@ const publicClient = createPublicClient({ chain: MONAD, transport: http(MONAD_RP
 const KURU_MARKET_ADDRESS = '0xa241896A7Dbe8a550D2E5fF7A914bB1989ceD2D9';
 const KURU_ABI = parseAbi([
   'function bestBidAsk() view returns (uint256 bestBid, uint256 bestAsk)',
+  'function getMarketParams() view returns (uint96 pricePrecision, uint96 sizePrecision, address baseAssetAddress, uint8 baseAssetDecimals, address quoteAssetAddress, uint8 quoteAssetDecimals, uint32 tickSize, uint96 minSize, uint96 maxSize, uint256 takerFeeBps, uint256 makerFeeBps)',
+  'function addBuyOrder(uint32 price, uint96 size, bool postOnly)',
+  'function addSellOrder(uint32 price, uint96 size, bool postOnly)',
+  'function batchCancelOrders(uint40[] orderIds)',
+  'event OrderCreated(uint40 orderId, address owner, uint96 size, uint32 price, bool isBuy)',
+  'event Trade(uint40 orderId, address makerAddress, bool isBuy, uint256 price, uint96 updatedSize, address takerAddress, address txOrigin, uint96 filledSize)',
+  'event OrdersCanceled(uint40[] orderId, address owner)',
 ]);
 const KURU_EMPTY_PRICE = (1n << 256n) - 1n;
+const MARGIN_ACCOUNT_ADDRESS = '0xd029C2D98ff85D8F64799017fE00a59B1159CE02';
+const USDC_ADDRESS = '0x3bA3d39AFcf8bb994f7964B3e0171Ea2Ba361570';
+const MARGIN_ABI = parseAbi([
+  'function deposit(address user, address token, uint256 amount) payable',
+  'function getBalance(address user, address token) view returns (uint256)',
+]);
+const ERC20_ABI = parseAbi([
+  'function balanceOf(address owner) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function decimals() view returns (uint8)',
+]);
+const KURU_ORDER_CREATED_EVENT = KURU_ABI.find((item) => item.type === 'event' && item.name === 'OrderCreated');
+const KURU_TRADE_EVENT = KURU_ABI.find((item) => item.type === 'event' && item.name === 'Trade');
+const KURU_CANCELLED_EVENT = KURU_ABI.find((item) => item.type === 'event' && item.name === 'OrdersCanceled');
 
 function useWallet() {
   const [account, setAccount] = useState();
@@ -253,63 +275,195 @@ function Research() {
 
 function KuruWorkspace({ wallet, go }) {
   const [quote, setQuote] = useState();
+  const [params, setParams] = useState();
+  const [balances, setBalances] = useState();
+  const [orders, setOrders] = useState([]);
   const [marketError, setMarketError] = useState('');
+  const [readErrors, setReadErrors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState('');
+  const [tx, setTx] = useState();
+  const [form, setForm] = useState({ side: 'buy', price: '', quantity: '', postOnly: true, depositUsdc: '10', depositMon: '1' });
 
   const refreshMarket = async () => {
     setLoading(true);
     setMarketError('');
+    setReadErrors([]);
     try {
-      const [bestBid, bestAsk] = await publicClient.readContract({
-        address: KURU_MARKET_ADDRESS,
-        abi: KURU_ABI,
-        functionName: 'bestBidAsk',
+      const [[bestBid, bestAsk], marketParams] = await Promise.all([
+        publicClient.readContract({ address: KURU_MARKET_ADDRESS, abi: KURU_ABI, functionName: 'bestBidAsk' }),
+        publicClient.readContract({ address: KURU_MARKET_ADDRESS, abi: KURU_ABI, functionName: 'getMarketParams' }),
+      ]);
+      setQuote({ bestBid: bestBid === KURU_EMPTY_PRICE ? 'No resting orders' : bestBid.toString(), bestAsk: bestAsk === KURU_EMPTY_PRICE ? 'No resting orders' : bestAsk.toString() });
+      setParams({
+        pricePrecision: marketParams[0], sizePrecision: marketParams[1], baseAssetAddress: marketParams[2],
+        baseDecimals: Number(marketParams[3]), quoteAssetAddress: marketParams[4], quoteDecimals: Number(marketParams[5]),
+        tickSize: marketParams[6], minSize: marketParams[7], maxSize: marketParams[8],
       });
-      setQuote({
-        bestBid: bestBid === KURU_EMPTY_PRICE ? 'No resting orders' : bestBid.toString(),
-        bestAsk: bestAsk === KURU_EMPTY_PRICE ? 'No resting orders' : bestAsk.toString(),
-        updatedAt: new Date(),
-      });
+      if (wallet.account && wallet.chainId === MONAD_CHAIN_ID) {
+        const [nativeBalance, usdcBalance, usdcAllowance, monMargin, usdcMargin] = await Promise.all([
+          publicClient.getBalance({ address: wallet.account }),
+          publicClient.readContract({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: 'balanceOf', args: [wallet.account] }),
+          publicClient.readContract({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: 'allowance', args: [wallet.account, MARGIN_ACCOUNT_ADDRESS] }),
+          publicClient.readContract({ address: MARGIN_ACCOUNT_ADDRESS, abi: MARGIN_ABI, functionName: 'getBalance', args: [wallet.account, '0x0000000000000000000000000000000000000000'] }),
+          publicClient.readContract({ address: MARGIN_ACCOUNT_ADDRESS, abi: MARGIN_ABI, functionName: 'getBalance', args: [wallet.account, USDC_ADDRESS] }),
+        ]);
+        setBalances({ nativeBalance, usdcBalance, usdcAllowance, monMargin, usdcMargin });
+      } else {
+        setBalances();
+      }
     } catch (error) {
-      setMarketError(error.shortMessage || error.message || 'Unable to read the Kuru market.');
+      const message = error.shortMessage || error.message || 'Unable to read Kuru market state.';
+      console.error('Kuru prerequisite RPC read failed', { rpcMethod: 'eth_call', message, error });
+      setMarketError(`Kuru prerequisite RPC read failed: ${message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    refreshMarket();
-  }, []);
+  const refreshOrders = async () => {
+    if (!wallet.account || wallet.chainId !== MONAD_CHAIN_ID) {
+      setOrders([]);
+      return;
+    }
+    try {
+      const latestBlock = await publicClient.getBlockNumber();
+      // Monad Testnet rejects the large response produced by a broad market log query
+      // with HTTP 413. Keep this browser-side refresh bounded to a safe recent window.
+      const fromBlock = latestBlock > 100n ? latestBlock - 100n : 0n;
+      const [createdLogs, tradeLogs, cancelledLogs] = await Promise.all([
+        publicClient.getLogs({ address: KURU_MARKET_ADDRESS, event: KURU_ORDER_CREATED_EVENT, fromBlock, toBlock: latestBlock }),
+        publicClient.getLogs({ address: KURU_MARKET_ADDRESS, event: KURU_TRADE_EVENT, fromBlock, toBlock: latestBlock }),
+        publicClient.getLogs({ address: KURU_MARKET_ADDRESS, event: KURU_CANCELLED_EVENT, fromBlock, toBlock: latestBlock }),
+      ]);
+      const mine = createdLogs.filter((log) => log.args.owner?.toLowerCase() === wallet.account.toLowerCase());
+      const next = mine.map((log) => {
+        const orderId = log.args.orderId.toString();
+        const trades = tradeLogs.filter((trade) => trade.args.orderId.toString() === orderId && (trade.args.makerAddress?.toLowerCase() === wallet.account.toLowerCase() || trade.args.takerAddress?.toLowerCase() === wallet.account.toLowerCase()));
+        const cancelled = cancelledLogs.some((cancelledLog) => cancelledLog.args.owner?.toLowerCase() === wallet.account.toLowerCase() && cancelledLog.args.orderId.map(String).includes(orderId));
+        const originalRaw = log.args.size;
+        const remainingRaw = trades.length ? trades[trades.length - 1].args.updatedSize : originalRaw;
+        const filledRaw = trades.reduce((total, trade) => total + trade.args.filledSize, 0n);
+        const status = cancelled ? 'Cancelled' : remainingRaw === 0n ? 'Filled' : filledRaw > 0n ? 'Partially Filled' : 'Confirmed';
+        return { id: orderId, side: log.args.isBuy ? 'BUY' : 'SELL', price: log.args.price, original: originalRaw, remaining: remainingRaw, filled: filledRaw, status, hash: log.transactionHash };
+      });
+      setOrders(next.reverse());
+    } catch (error) {
+      const message = error.shortMessage || error.message || 'Unable to load Kuru order activity.';
+      console.error('Kuru order-history RPC read failed', {
+        rpcMethod: 'eth_getLogs',
+        contract: KURU_MARKET_ADDRESS,
+        fromBlockWindow: 'latest - 100 blocks',
+        message,
+        error,
+      });
+      setReadErrors((current) => [...current, `Order history unavailable (eth_getLogs): ${message}`]);
+    }
+  };
 
-  return <Page title="Kuru Market Workspace" eyebrow="PRODUCT / ONCHAIN FINANCE" intro="Monitor the live Monad testnet MON-USDC market while PageSync keeps storage and gas evidence separate from the trading venue.">
-    <section className="trade-toolbar card">
-      <div><span className="label">KURU · MON / USDC</span><h2>Real market, explicit prerequisites</h2><p className="form-note">Kuru is the trading venue. PageSync’s deployed order book remains a storage-optimization reference implementation and is not used for Kuru settlement.</p></div>
-      <div className="network-actions">{!wallet.account ? <Button onClick={wallet.connect}>Connect Wallet</Button> : <span className="wallet-pill">{shortAddress(wallet.account)}</span>}{wallet.account && wallet.chainId !== MONAD_CHAIN_ID && <Button secondary onClick={wallet.switchNetwork}>Switch to Monad</Button>}<Button secondary onClick={refreshMarket} disabled={loading}>{loading ? 'Reading...' : 'Refresh market'}</Button></div>
-    </section>
+  useEffect(() => { refreshMarket(); }, [wallet.account, wallet.chainId]);
+  useEffect(() => { refreshOrders(); }, [wallet.account, wallet.chainId]);
+
+  const sendTransaction = async (label, request) => {
+    if (!wallet.walletClient || !wallet.account || wallet.chainId !== MONAD_CHAIN_ID) throw new Error('Connect a wallet on Monad Testnet first.');
+    setBusy(label);
+    setTx({ label, status: 'Pending' });
+    try {
+      const hash = await request();
+      setTx({ label, status: 'Pending', hash });
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      if (receipt.status !== 'success') throw new Error('Transaction was mined but failed.');
+      setTx({ label, status: 'Confirmed', hash });
+      await Promise.all([refreshMarket(), refreshOrders()]);
+      return receipt;
+    } catch (error) {
+      setTx({ label, status: 'Failed', hash: error.transactionHash, error: error.shortMessage || error.message || 'Transaction rejected or failed.' });
+      throw error;
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const approveUsdc = async () => {
+    try {
+      await sendTransaction('Approve USDC', () => wallet.walletClient.writeContract({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: 'approve', args: [MARGIN_ACCOUNT_ADDRESS, parseUnits(form.depositUsdc || '0', 6)], account: wallet.account }));
+    } catch {}
+  };
+
+  const deposit = async (token, amount, decimals) => {
+    try {
+      const value = parseUnits(amount || '0', decimals);
+      await sendTransaction(`Deposit ${token}`, () => wallet.walletClient.writeContract({ address: MARGIN_ACCOUNT_ADDRESS, abi: MARGIN_ABI, functionName: 'deposit', args: [wallet.account, token === 'MON' ? '0x0000000000000000000000000000000000000000' : USDC_ADDRESS, value], value: token === 'MON' ? value : 0n, account: wallet.account }));
+    } catch {}
+  };
+
+  const placeOrder = async () => {
+    try {
+      if (!params) throw new Error('Market parameters are still loading.');
+      if (!form.price || !form.quantity) throw new Error('Enter a price and quantity.');
+      const price = parseUnits(form.price, 8);
+      const size = parseUnits(form.quantity, 10);
+      if (price <= 0n || size <= 0n) throw new Error('Price and quantity must be positive.');
+      if (price % params.tickSize !== 0n) throw new Error(`Price must follow the market tick size of ${params.tickSize} raw units.`);
+      if (size < params.minSize || size > params.maxSize) throw new Error(`Quantity must be between ${formatUnits(params.minSize, 10)} and ${formatUnits(params.maxSize, 10)} MON.`);
+      const marginRequired = form.side === 'buy'
+        ? (price * size * 10n ** 6n) / (10n ** 8n * 10n ** 10n)
+        : (size * 10n ** 18n) / 10n ** 10n;
+      const available = form.side === 'buy' ? balances?.usdcMargin : balances?.monMargin;
+      if (!available || available < marginRequired) throw new Error(`Insufficient ${form.side === 'buy' ? 'USDC' : 'MON'} margin. Deposit the required asset first.`);
+      const receipt = await sendTransaction('Place Kuru limit order', () => wallet.walletClient.writeContract({
+        address: KURU_MARKET_ADDRESS, abi: KURU_ABI, functionName: form.side === 'buy' ? 'addBuyOrder' : 'addSellOrder',
+        args: [price, size, form.postOnly], account: wallet.account,
+      }));
+      const created = receipt.logs.map((log) => { try { return decodeEventLog({ abi: KURU_ABI, data: log.data, topics: log.topics }); } catch { return null; } }).find((event) => event?.eventName === 'OrderCreated');
+      if (created) setTx((current) => ({ ...current, orderId: created.args.orderId.toString() }));
+      setForm((current) => ({ ...current, price: '', quantity: '' }));
+    } catch (error) {
+      setTx({ label: 'Place Kuru limit order', status: 'Failed', error: error.shortMessage || error.message || 'Order failed.' });
+    }
+  };
+
+  const cancelOrder = async (orderId) => {
+    try {
+      await sendTransaction(`Cancel Kuru order #${orderId}`, () => wallet.walletClient.writeContract({ address: KURU_MARKET_ADDRESS, abi: KURU_ABI, functionName: 'batchCancelOrders', args: [[BigInt(orderId)]], account: wallet.account }));
+    } catch {}
+  };
+
+  const tradingReady = Boolean(wallet.account && wallet.chainId === MONAD_CHAIN_ID && balances && params);
+  const estimateValue = form.price && form.quantity ? Number(form.price) * Number(form.quantity) : 0;
+  const fmt = (value, decimals) => value === undefined ? '—' : `${Number(formatUnits(value, decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 })}`;
+
+  return <Page title="Kuru Market Workspace" eyebrow="PRODUCT / ONCHAIN FINANCE" intro="Trade the real Monad Testnet MON/USDC market through Kuru. PageSyncOrderBook remains a separate storage-optimization reference implementation.">
+    <section className="trade-toolbar card"><div><span className="label">KURU · MON / USDC</span><h2>Real trading venue</h2><p className="form-note">Kuru handles MON/USDC settlement through its MarginAccount. PageSyncOrderBook is not used for Kuru trading.</p></div><div className="network-actions">{!wallet.account ? <Button onClick={wallet.connect}>Connect Wallet</Button> : <span className="wallet-pill">{shortAddress(wallet.account)}</span>}{wallet.account && wallet.chainId !== MONAD_CHAIN_ID && <Button secondary onClick={wallet.switchNetwork}>Switch to Monad</Button>}<Button secondary onClick={refreshMarket} disabled={loading}>{loading ? 'Reading...' : 'Refresh market'}</Button></div></section>
     {wallet.walletError && <div className="error-box">{wallet.walletError}</div>}
-    {wallet.account && wallet.chainId !== MONAD_CHAIN_ID && <div className="callout warning"><b>Monad Testnet required</b><span>Kuru’s documented testnet market is on chain 10143. Switch networks before using any future trading controls.</span><Button secondary onClick={wallet.switchNetwork}>Switch Network</Button></div>}
-    <div className="metric-grid"><Metric label="Market" value="MON / USDC" /><Metric label="Best bid" value={quote?.bestBid || '—'} /><Metric label="Best ask" value={quote?.bestAsk || '—'} /><Metric label="Network" value="Monad 10143" /></div>
     {marketError && <div className="error-box">{marketError}</div>}
-    <div className="tool-grid">
-      <section className="card"><div className="card-head"><div><span className="label">TOP OF BOOK</span><h2>Current market quote</h2></div><span className={`chip ${quote ? 'green' : ''}`}>{quote ? 'live RPC read' : 'unavailable'}</span></div><div className="kuru-book"><div><span>BEST BID</span><strong>{quote?.bestBid || '—'}</strong><small>raw market contract units</small></div><div><span>BEST ASK</span><strong>{quote?.bestAsk || '—'}</strong><small>raw market contract units</small></div></div><p className="form-note">The quote is read directly from Kuru’s deployed order-book contract. Full depth and transaction execution require the Kuru SDK, margin-account funding, and token approvals.</p></section>
-      <section className="card"><div className="card-head"><div><span className="label">MARKET CONTRACT</span><h2>Kuru MON-USDC</h2></div><span className="chip">testnet</span></div><dl className="kuru-details"><dt>Market</dt><dd><code>{KURU_MARKET_ADDRESS}</code></dd><dt>Settlement</dt><dd>Kuru margin account</dd><dt>Quote asset</dt><dd>USDC</dd><dt>Base asset</dt><dd>MON</dd></dl><div className="actions"><a className="button secondary" href={`https://testnet.monadexplorer.com/address/${KURU_MARKET_ADDRESS}`} target="_blank" rel="noreferrer">View market ↗</a><Button secondary onClick={() => go('activity')}>Open indexed activity →</Button></div></section>
-    </div>
-    <section className="callout"><b>Trading status: read-only workspace</b><span>Before placing an order, a wallet must hold the required asset, deposit it into Kuru’s margin account, and approve the market flow. Trade execution will be added only after those contract interactions are verified end to end.</span></section>
+    {readErrors.map((message) => <div className="error-box" key={message}>{message}</div>)}
+    <section className="card kuru-status"><div className="card-head"><div><span className="label">TRADING STATUS</span><h2>Prerequisites</h2></div><span className={`chip ${tradingReady ? 'green' : ''}`}>{tradingReady ? 'wallet state loaded' : 'not ready'}</span></div><div className="status-grid"><StatusLine label="Wallet" value={wallet.account ? `Connected · ${shortAddress(wallet.account)}` : 'Disconnected'} ok={Boolean(wallet.account)} /><StatusLine label="Network" value={wallet.chainId === MONAD_CHAIN_ID ? 'Monad Testnet' : wallet.chainId ? `Wrong network · chain ${wallet.chainId}` : 'Not connected'} ok={wallet.chainId === MONAD_CHAIN_ID} /><StatusLine label="Market" value="Kuru MON / USDC" ok={Boolean(params)} /><StatusLine label="MarginAccount" value={shortAddress(MARGIN_ACCOUNT_ADDRESS)} ok={Boolean(balances)} /><StatusLine label="USDC approval" value={balances ? `${fmt(balances.usdcAllowance, 6)} USDC allowance` : 'Connect wallet to check'} ok={Boolean(balances?.usdcAllowance > 0n)} /><StatusLine label="Margin balances" value={balances ? `${fmt(balances.monMargin, 18)} MON · ${fmt(balances.usdcMargin, 6)} USDC` : 'Connect wallet to check'} ok={Boolean(balances && (balances.monMargin > 0n || balances.usdcMargin > 0n))} /></div><strong className={tradingReady ? 'ready-text' : 'warning-text'}>{tradingReady ? 'Trading controls available after balance and validation checks.' : 'Trading not ready — complete the missing wallet, network, and margin prerequisites.'}</strong></section>
+    <div className="metric-grid"><Metric label="Best bid" value={quote?.bestBid || '—'} /><Metric label="Best ask" value={quote?.bestAsk || '—'} /><Metric label="Wallet MON" value={fmt(balances?.nativeBalance, 18)} /><Metric label="Wallet USDC" value={fmt(balances?.usdcBalance, 6)} /></div>
+    <div className="tool-grid"><section className="card"><div className="card-head"><div><span className="label">MARGIN FUNDING</span><h2>Fund Kuru balances</h2></div><span className="chip">real transactions</span></div><label>USDC amount<input inputMode="decimal" value={form.depositUsdc} onChange={(event) => setForm({ ...form, depositUsdc: event.target.value })} placeholder="10" /></label><div className="actions"><Button secondary onClick={approveUsdc} disabled={!wallet.account || wallet.chainId !== MONAD_CHAIN_ID || busy === 'Approve USDC'}>{busy === 'Approve USDC' ? 'Approving...' : 'Approve USDC'}</Button><Button onClick={() => deposit('USDC', form.depositUsdc, 6)} disabled={!wallet.account || wallet.chainId !== MONAD_CHAIN_ID || busy === 'Deposit USDC'}>{busy === 'Deposit USDC' ? 'Depositing...' : 'Deposit USDC'}</Button></div><label>MON amount<input inputMode="decimal" value={form.depositMon} onChange={(event) => setForm({ ...form, depositMon: event.target.value })} placeholder="1" /></label><Button onClick={() => deposit('MON', form.depositMon, 18)} disabled={!wallet.account || wallet.chainId !== MONAD_CHAIN_ID || busy === 'Deposit MON'}>{busy === 'Deposit MON' ? 'Depositing...' : 'Deposit MON'}</Button><p className="form-note">Buy orders require USDC margin. Sell orders require MON margin. Deposits are confirmed only after the Monad receipt succeeds.</p></section>
+      <section className="card"><div className="card-head"><div><span className="label">LIMIT ORDER</span><h2>Place on Kuru MON / USDC</h2></div><span className="chip green">Kuru venue</span></div><div className="side-toggle"><button className={form.side === 'buy' ? 'active' : ''} onClick={() => setForm({ ...form, side: 'buy' })}>BUY MON</button><button className={form.side === 'sell' ? 'active sell' : ''} onClick={() => setForm({ ...form, side: 'sell' })}>SELL MON</button></div><label>Price · USDC per MON<input inputMode="decimal" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} placeholder="1.001" /></label><label>Quantity · MON<input inputMode="decimal" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} placeholder="200" /></label><label className="checkbox-row"><input type="checkbox" checked={form.postOnly} onChange={(event) => setForm({ ...form, postOnly: event.target.checked })} /> Post-only order</label><div className="order-value">Estimated order value: <strong>{estimateValue ? `${estimateValue.toLocaleString(undefined, { maximumFractionDigits: 6 })} USDC` : '—'}</strong></div><Button onClick={placeOrder} disabled={!tradingReady || !!busy}>{busy === 'Place Kuru limit order' ? 'Confirming...' : 'Place Kuru order →'}</Button><p className="form-note">Market parameters: tick {params ? formatUnits(params.tickSize, 8) : '—'} · min {params ? formatUnits(params.minSize, 10) : '—'} MON · max {params ? formatUnits(params.maxSize, 10) : '—'} MON.</p></section></div>
+    {tx && <section className={`tx-banner ${tx.status === 'Failed' ? 'tx-failed' : ''}`}><div><b>{tx.label} · {tx.status}</b>{tx.orderId && <span>Order ID: #{tx.orderId}</span>}{tx.error && <span>{tx.error}</span>}{tx.hash && <a href={`https://testnet.monadexplorer.com/tx/${tx.hash}`} target="_blank" rel="noreferrer">Transaction {shortAddress(tx.hash)} ↗</a>}</div></section>}
+    <section className="card"><div className="card-head"><div><span className="label">YOUR KURU ORDERS</span><h2>Confirmed MON/USDC orders</h2></div><span className="muted">{orders.length} indexed from recent events</span></div>{orders.length ? <div className="table-wrap"><table><thead><tr><th>Order</th><th>Side</th><th>Price</th><th>Original</th><th>Remaining</th><th>Filled</th><th>Status</th><th>Action</th></tr></thead><tbody>{orders.map((order) => <tr key={order.id}><td><code>#{order.id}</code><br /><a href={`https://testnet.monadexplorer.com/tx/${order.hash}`} target="_blank" rel="noreferrer">Tx ↗</a></td><td>{order.side}</td><td>{order.price.toString()}</td><td>{formatUnits(order.original, 10)}</td><td>{formatUnits(order.remaining, 10)}</td><td>{formatUnits(order.filled, 10)}</td><td><span className="status">{order.status}</span></td><td>{['Confirmed', 'Partially Filled'].includes(order.status) && <Button secondary onClick={() => cancelOrder(order.id)} disabled={!!busy}>Cancel</Button>}</td></tr>)}</tbody></table></div> : <p className="empty-state">Connect a Monad wallet and place a confirmed Kuru order to see it here.</p>}</section>
+    <section className="card"><span className="label">REFERENCE IMPLEMENTATION</span><h2>PageSyncOrderBook ≠ Kuru</h2><p className="form-note">The PageSync order-book controls remain available under Optimization Demo and continue to measure packed storage. Kuru MON/USDC transactions above use only the verified Kuru market contract.</p><Button secondary onClick={() => go('trade')}>Open PageSync Optimization Demo →</Button></section>
   </Page>;
 }
 
+function StatusLine({ label, value, ok }) {
+  return <div className="status-line"><span>{label}</span><strong className={ok ? 'status-ok' : 'status-missing'}>{ok ? '✓' : '!'}</strong><b>{value}</b></div>;
+}
+
 function Activity() {
-  const [data, setData] = useState({ orders: [], trades: [], stats: null });
+  const [data, setData] = useState({ orders: [], trades: [], kuru: { orders: [], trades: [], cancellations: [] }, stats: null });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const refresh = async () => {
     setLoading(true);
     setError('');
     try {
-      const responses = await Promise.all(['/orders?limit=20', '/trades?limit=20', '/stats'].map((path) => fetch(`http://localhost:3001${path}`)));
+      const responses = await Promise.all(['/orders?limit=20', '/trades?limit=20', '/stats', '/kuru/activity?limit=20'].map((path) => fetch(`http://localhost:3001${path}`)));
       if (responses.some((response) => !response.ok)) throw new Error('The PageSync backend returned an error.');
-      const [orders, trades, stats] = await Promise.all(responses.map((response) => response.json()));
-      setData({ orders: orders.orders || [], trades: trades.trades || [], stats });
+      const [orders, trades, stats, kuru] = await Promise.all(responses.map((response) => response.json()));
+      setData({ orders: orders.orders || [], trades: trades.trades || [], kuru, stats });
     } catch (requestError) {
       setError(`Envio activity is unavailable. Start the backend and Envio indexer to load historical data. (${requestError.message})`);
     } finally {
@@ -318,10 +472,11 @@ function Activity() {
   };
   useEffect(() => { refresh(); }, []);
   const envio = data.stats?.envio;
-  return <Page title="Activity & Analytics" eyebrow="DATA / ENVIO INDEXED ACTIVITY" intro="Review indexed PageSync order activity and trades without confusing event history with receipt-level gas measurement.">
-    <section className="trade-toolbar card"><div><span className="label">INDEXED DATA LAYER</span><h2>Envio activity</h2><p className="form-note">Events are indexed from the deployed reference contracts. Gas figures still come from transaction receipts and the benchmark artifacts.</p></div><Button secondary onClick={refresh} disabled={loading}>{loading ? 'Loading...' : 'Refresh activity'}</Button></section>
+  return <Page title="Activity & Analytics" eyebrow="DATA / ENVIO INDEXED ACTIVITY" intro="Kuru events and PageSync reference events are indexed and displayed as separate data products.">
+    <section className="trade-toolbar card"><div><span className="label">INDEXED DATA LAYER</span><h2>Envio activity</h2><p className="form-note">KURU ACTIVITY is the real MON/USDC venue. PAGE SYNC ACTIVITY is the storage-optimization reference implementation.</p></div><Button secondary onClick={refresh} disabled={loading}>{loading ? 'Loading...' : 'Refresh activity'}</Button></section>
     {error && <div className="error-box">{error}</div>}
-    <div className="metric-grid"><Metric label="Envio status" value={envio?.envioAvailable ? 'Connected' : 'Not running'} /><Metric label="Orders placed" value={envio?.ordersPlaced ?? '—'} /><Metric label="Trades executed" value={envio?.tradesExecuted ?? '—'} /><Metric label="Indexed orders loaded" value={data.orders.length} /></div>
+    <div className="metric-grid"><Metric label="Envio status" value={envio?.envioAvailable ? 'Connected' : 'Not running'} /><Metric label="PageSync orders" value={envio?.ordersPlaced ?? '—'} /><Metric label="Kuru orders" value={envio?.kuruOrders ?? '—'} /><Metric label="Kuru trades" value={envio?.kuruTrades ?? '—'} /></div>
+    <section className="card"><div className="card-head"><div><span className="label">KURU ACTIVITY · MON / USDC</span><h2>Real venue events</h2></div><span className="muted">latest 20</span></div>{data.kuru.orders.length ? <div className="table-wrap"><table><thead><tr><th>Order</th><th>Side</th><th>Price</th><th>Size</th><th>Owner</th><th>Transaction</th></tr></thead><tbody>{data.kuru.orders.map((order) => <tr key={order.id}><td><code>#{order.orderId}</code></td><td>{order.isBuy ? 'BUY' : 'SELL'}</td><td>{order.price}</td><td>{order.size}</td><td><code>{shortAddress(order.owner)}</code></td><td><a href={`https://testnet.monadexplorer.com/tx/${order.transactionHash}`} target="_blank" rel="noreferrer">View ↗</a></td></tr>)}</tbody></table></div> : <p className="empty-state">No Kuru events are indexed yet. Start Envio to populate this section.</p>}</section>
     <section className="card"><div className="card-head"><div><span className="label">RECENT ORDER ACTIVITY</span><h2>OrderPlaced events</h2></div><span className="muted">latest 20</span></div>{data.orders.length ? <div className="table-wrap"><table><thead><tr><th>Order</th><th>Side</th><th>Price</th><th>Quantity</th><th>Contract</th><th>Transaction</th></tr></thead><tbody>{data.orders.map((order) => <tr key={order.id}><td><code>#{order.orderId}</code></td><td>{Number(order.side) === 0 ? 'BUY' : 'SELL'}</td><td>{order.price}</td><td>{order.quantity}</td><td><code>{shortAddress(order.contractAddress)}</code></td><td><a href={`https://testnet.monadexplorer.com/tx/${order.transactionHash}`} target="_blank" rel="noreferrer">View ↗</a></td></tr>)}</tbody></table></div> : <p className="empty-state">No indexed orders are available.</p>}</section>
     <section className="card"><div className="card-head"><div><span className="label">RECENT TRADES</span><h2>TradeExecuted events</h2></div><span className="muted">latest 20</span></div>{data.trades.length ? <div className="table-wrap"><table><thead><tr><th>Order</th><th>Price</th><th>Quantity</th><th>Transaction</th></tr></thead><tbody>{data.trades.map((trade) => <tr key={trade.id}><td><code>#{trade.orderId}</code></td><td>{trade.price}</td><td>{trade.quantity}</td><td><a href={`https://testnet.monadexplorer.com/tx/${trade.transactionHash}`} target="_blank" rel="noreferrer">View ↗</a></td></tr>)}</tbody></table></div> : <p className="empty-state">No indexed trades are available.</p>}</section>
   </Page>;
