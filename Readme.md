@@ -1,19 +1,26 @@
 # PageSync
 
-PageSync is a developer tool for analyzing Solidity storage layouts, inspecting known contract storage, and benchmarking real gas usage.
+PageSync is an on-chain market intelligence dashboard for the Monad Testnet MON/USDC market. Kuru remains the trading venue; PageSync makes market activity, wallet activity, and measured storage/gas evidence easier to understand.
 
 ## What it does
 
 Solidity structs are laid out in 32-byte storage slots. Small type choices and field ordering can create packing opportunities, but changing a deployed layout can also break storage compatibility. PageSync makes those trade-offs visible before deployment.
 
-The product has four surfaces:
+The product has these surfaces:
+
+- **Overview** — public market context, best bid/ask, activity preview, wallet entry point, and measured storage evidence.
+- **Markets** — MON/USDC market state and simple order-book explanations.
+- **Activity** — separate Kuru venue events and PageSync reference-contract events indexed by Envio.
+- **My Orders** — optional wallet-scoped activity; connecting is not required for public market intelligence.
+- **Watch** — lightweight market monitoring view.
+- **Gas & Storage** — measured receipt benchmark and packed-storage comparison.
+- **Developer Tools** — the technical tools below.
 
 - **Struct Analyzer** — paste a supported struct and inspect slots, byte offsets, packing groups, and unused space.
 - **Storage Inspector** — inspect the verified layouts of the deployed NaiveOrderBook and PageSyncOrderBook contracts.
 - **Gas Benchmark** — compare receipt-based gas measurements from the controlled Monad Testnet workload.
 - **Research** — explore the PageSync packed-storage case study and its limitations.
-- **Kuru Market** — fund and trade the live Monad Testnet MON-USDC market without confusing Kuru with the PageSync reference contract.
-- **Activity** — view order and trade events indexed by Envio when the optional backend and indexer are running.
+- **Kuru Market** — optional funding and trading workspace for the live Monad Testnet MON-USDC market.
 
 ## Architecture
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+ import { useEffect, useMemo, useState } from 'react';
 import { createPublicClient, createWalletClient, custom, decodeEventLog, defineChain, formatUnits, http, parseAbi, parseUnits } from 'viem';
 import './App.css';
 import StorageBenchmark3D from './components/StorageBenchmark3D';
@@ -486,6 +486,124 @@ function shortAddress(address) {
   return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
 }
 
+function useKuruSnapshot() {
+  const [snapshot, setSnapshot] = useState({ quote: null, block: null, loading: true, error: '' });
+  const refresh = async () => {
+    setSnapshot((current) => ({ ...current, loading: true, error: '' }));
+    try {
+      const [[bestBid, bestAsk], block] = await Promise.all([
+        publicClient.readContract({ address: KURU_MARKET_ADDRESS, abi: KURU_ABI, functionName: 'bestBidAsk' }),
+        publicClient.getBlockNumber(),
+      ]);
+      setSnapshot({
+        quote: {
+          bestBid: bestBid === KURU_EMPTY_PRICE ? null : Number(formatUnits(bestBid, 8)),
+          bestAsk: bestAsk === KURU_EMPTY_PRICE ? null : Number(formatUnits(bestAsk, 8)),
+        },
+        block: block.toString(),
+        loading: false,
+        error: '',
+      });
+    } catch (error) {
+      setSnapshot({ quote: null, block: null, loading: false, error: error.shortMessage || error.message || 'Unable to read the Kuru market.' });
+    }
+  };
+  useEffect(() => { refresh(); }, []);
+  const bid = snapshot.quote?.bestBid;
+  const ask = snapshot.quote?.bestAsk;
+  return {
+    ...snapshot,
+    refresh,
+    mid: bid !== undefined && bid !== null && ask !== undefined && ask !== null ? (bid + ask) / 2 : null,
+    spread: bid !== undefined && bid !== null && ask !== undefined && ask !== null ? ask - bid : null,
+  };
+}
+
+function MarketSummary({ snapshot }) {
+  const value = (number, suffix = '') => number === null || number === undefined ? '—' : `${number.toLocaleString(undefined, { maximumFractionDigits: 6 })}${suffix}`;
+  return <div className="metric-grid market-metrics">
+    <Metric label="Best bid" value={value(snapshot.quote?.bestBid, ' USDC')} />
+    <Metric label="Best ask" value={value(snapshot.quote?.bestAsk, ' USDC')} />
+    <Metric label="Spread" value={value(snapshot.spread, ' USDC')} />
+    <Metric label="Mid price" value={value(snapshot.mid, ' USDC')} />
+  </div>;
+}
+
+function MarketCard({ snapshot, go }) {
+  return <section className="card market-card">
+    <div className="card-head"><div><span className="label">KURU LIVE MARKET · MON / USDC</span><h2>Market state</h2></div><span className="chip green">Monad Testnet</span></div>
+    <p className="form-note">Kuru is the real trading venue. PageSync reads the public market state and adds context; it does not replace Kuru.</p>
+    <MarketSummary snapshot={snapshot} />
+    {snapshot.error && <div className="error-box">{snapshot.error}</div>}
+    <div className="actions"><Button secondary onClick={snapshot.refresh} disabled={snapshot.loading}>{snapshot.loading ? 'Reading market...' : 'Refresh market'}</Button><Button onClick={() => go('kuru')}>Open optional Kuru trading →</Button></div>
+  </section>;
+}
+
+function PublicActivityPreview({ go }) {
+  const [data, setData] = useState({ orders: [], trades: [], cancellations: [] });
+  const [state, setState] = useState('loading');
+  useEffect(() => {
+    fetch('http://localhost:3001/kuru/activity?limit=5')
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Activity API returned an error.')))
+      .then((result) => { setData(result); setState('ready'); })
+      .catch(() => setState('unavailable'));
+  }, []);
+  const rows = [
+    ...data.orders.map((item) => ({ ...item, kind: 'Order created', side: item.isBuy ? 'BUY' : 'SELL', detail: `${item.size} MON @ ${item.price}` })),
+    ...data.trades.map((item) => ({ ...item, kind: 'Trade', side: item.isBuy ? 'BUY' : 'SELL', detail: `${item.filledSize} filled @ ${item.price}` })),
+    ...data.cancellations.map((item) => ({ ...item, kind: 'Order cancelled', side: '—', detail: `Order ${item.orderIds}` })),
+  ].sort((a, b) => Number(b.blockTimestamp || 0) - Number(a.blockTimestamp || 0)).slice(0, 5);
+  return <section className="card"><div className="card-head"><div><span className="label">ONCHAIN ACTIVITY · KURU</span><h2>What is happening?</h2></div><Button secondary onClick={() => go('activity')}>View all activity →</Button></div>
+    {state === 'unavailable' && <p className="empty-state">Historical activity is unavailable. Start the optional backend and Envio indexer to load it.</p>}
+    {state === 'ready' && !rows.length && <p className="empty-state">No indexed Kuru events yet.</p>}
+    {rows.length > 0 && <div className="activity-list">{rows.map((row) => <div className="activity-row" key={row.id}><span className="activity-kind">{row.kind}</span><b>{row.side}</b><span>{row.detail}</span><a href={`https://testnet.monadexplorer.com/tx/${row.transactionHash}`} target="_blank" rel="noreferrer">View ↗</a></div>)}</div>}
+  </section>;
+}
+
+function Overview({ go, wallet }) {
+  const snapshot = useKuruSnapshot();
+  return <Page home>
+    <section className="market-hero"><div><span className="label">PAGESYNC / ONCHAIN MARKET INTELLIGENCE</span><h1>Understand the market.<br /><em>Understand the activity.</em></h1><p>Monitor MON/USDC activity, understand on-chain market behavior, and measure the storage and gas cost behind it.</p><div className="market-definition"><b>MON/USDC</b><span>MON is the asset being traded. USDC is the quote currency. Buying MON means spending USDC to receive MON.</span></div></div><div className="hero-market-panel"><span className="label">LIVE MARKET</span><strong>MON / USDC</strong><span className="hero-price">{snapshot.mid === null ? '—' : snapshot.mid.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span><small>{snapshot.loading ? 'Reading Kuru...' : snapshot.error ? 'Market read unavailable' : 'mid price · Monad Testnet'}</small></div></section>
+    <MarketCard snapshot={snapshot} go={go} />
+    <div className="overview-grid"><section className="card"><div className="card-head"><div><span className="label">MARKET OVERVIEW</span><h2>Order book at a glance</h2></div><span className="chip">public data</span></div><p className="form-note">Best bid is the highest current buy offer. Best ask is the lowest current sell offer. The spread is the difference between them.</p><div className="book-preview"><div><span>BEST BID</span><strong>{snapshot.quote?.bestBid ?? '—'}</strong><small>highest buyer</small></div><div><span>BEST ASK</span><strong>{snapshot.quote?.bestAsk ?? '—'}</strong><small>cheapest seller</small></div></div><Button secondary onClick={() => go('markets')}>Explore MON/USDC →</Button></section><section className="card"><div className="card-head"><div><span className="label">YOUR ACTIVITY</span><h2>Wallet optional</h2></div><span className="chip">{wallet.account ? 'connected' : 'not connected'}</span></div><p className="form-note">{wallet.account ? `Viewing activity for ${shortAddress(wallet.account)}.` : 'Connect only when you want to see your orders, fills and cancellations.'}</p><Button onClick={() => go('orders')}>{wallet.account ? 'View my orders →' : 'View my orders'}</Button></section></div>
+    <PublicActivityPreview go={go} />
+    <section className="card intelligence-callout"><div><span className="label">GAS & STORAGE INTELLIGENCE</span><h2>20.42% lower median receipt gas in a measured benchmark</h2><p className="form-note">Across three repeated Monad Testnet workloads, the PageSync packed representation used 20.42% less median receipt gas than the conventional representation. This is measured evidence, not guaranteed production savings.</p></div><Button secondary onClick={() => go('gas')}>View benchmark →</Button></section>
+    <section className="developer-strip"><div><span className="label">DEVELOPER TOOLS</span><h2>Inspect the evidence behind PageSync</h2></div><div className="tool-links"><button onClick={() => go('analyzer')}>Struct Analyzer ↗</button><button onClick={() => go('inspector')}>Storage Inspector ↗</button><button onClick={() => go('gas')}>Gas Benchmark ↗</button></div></section>
+  </Page>;
+}
+
+function Markets({ go }) {
+  const snapshot = useKuruSnapshot();
+  return <Page title="MON/USDC Market" eyebrow="MARKETS / LIVE KURU STATE" intro="A simple view of the real Monad Testnet market. Trading remains optional."><MarketCard snapshot={snapshot} go={go} /><div className="overview-grid"><section className="card"><div className="card-head"><div><span className="label">ORDER BOOK</span><h2>Current best prices</h2></div></div><MarketSummary snapshot={snapshot} /><div className="empty-state">Detailed depth is not exposed by the current public market read. Showing only verified best bid and ask values.</div></section><section className="card"><div className="card-head"><div><span className="label">RECENT TRADES</span><h2>Indexed fills</h2></div></div><p className="empty-state">Open Activity to see Kuru trades indexed by Envio, including price, size, block and transaction.</p><Button secondary onClick={() => go('activity')}>Open activity →</Button></section></div></Page>;
+}
+
+function Watch({ go }) {
+  const snapshot = useKuruSnapshot();
+  return <Page title="Watch MON/USDC" eyebrow="WATCH / WHAT CHANGED" intro="A lightweight checkpoint for the market state and the latest indexed activity."><MarketCard snapshot={snapshot} go={go} /><PublicActivityPreview go={go} /><section className="card"><span className="label">READ THIS VIEW</span><h2>Check what changed since your last visit</h2><p className="form-note">This page intentionally stays focused: current market state plus the latest Kuru order, trade and cancellation events. Notifications and alert rules are not enabled.</p></section></Page>;
+}
+
+function MyOrders({ wallet, go }) {
+  return <Page title="My Orders" eyebrow="PERSONAL / WALLET-SCOPED ACTIVITY" intro="Your wallet is optional. Connect to inspect your own orders, fills and cancellations."><section className="card personal-empty">{wallet.account ? <><span className="label">CONNECTED WALLET</span><h2>{shortAddress(wallet.account)}</h2><p className="form-note">Kuru order tracking and PageSync transaction history are available in their respective workspaces.</p><div className="actions"><Button onClick={() => go('kuru')}>Open Kuru order workspace →</Button><Button secondary onClick={() => go('trade')}>Open PageSync demo →</Button></div></> : <><span className="label">WALLET OPTIONAL</span><h2>Connect wallet to view your orders, fills and cancellations.</h2><p className="form-note">Public market information remains available without connecting.</p><Button onClick={wallet.connect}>Connect wallet</Button></>}</section></Page>;
+}
+
+function Guide({ go }) {
+  const steps = [
+    { number: '01', title: 'Start with the market', text: 'Open Overview to see the MON/USDC market, current best prices, the spread, and a plain-language explanation of what is being traded.', action: 'Open Overview', page: 'home' },
+    { number: '02', title: 'Understand the activity', text: 'Use Activity for indexed Kuru order, trade, and cancellation events. Kuru is the venue; Envio makes those events searchable.', action: 'Explore Activity', page: 'activity' },
+    { number: '03', title: 'Watch what changes', text: 'Use Watch as a quick checkpoint for the latest market state and activity. It is public and does not require a wallet.', action: 'Open Watch', page: 'watch' },
+    { number: '04', title: 'Inspect your own activity', text: 'Connect a wallet only when you want to see your orders, fills, cancellations, or use the optional Kuru trading workspace.', action: 'View My Orders', page: 'orders' },
+    { number: '05', title: 'Understand the cost', text: 'Gas & Storage explains the measured receipt-gas comparison between a conventional order representation and PageSync’s packed representation.', action: 'View Gas & Storage', page: 'gas' },
+  ];
+  return <Page title="How to use PageSync" eyebrow="GUIDE / START HERE" intro="A simple path from market context to on-chain evidence. You can explore everything public before connecting a wallet.">
+    <section className="guide-hero"><div><span className="label">YOUR FIRST 5 MINUTES</span><h2>See the market.<br /><em>Follow the activity.</em></h2><p>PageSync is an intelligence layer around the MON/USDC market. Kuru provides the real trading venue, Envio indexes activity, and PageSync helps you understand the market and the storage evidence behind it.</p><div className="actions"><Button onClick={() => go('home')}>Start with Overview →</Button><Button secondary onClick={() => go('markets')}>Explore the market</Button></div></div><div className="guide-orbit"><div className="orbit-ring ring-one" /><div className="orbit-ring ring-two" /><div className="orbit-core"><b>PS</b><span>market<br />intelligence</span></div><span className="orbit-label orbit-kuru">KURU · VENUE</span><span className="orbit-label orbit-envio">ENVIO · ACTIVITY</span><span className="orbit-label orbit-pagesync">PAGESYNC · EVIDENCE</span></div></section>
+    <section className="guide-section"><div className="section-heading"><span className="label">THE JOURNEY</span><h2>Follow the signal, not the noise.</h2><p>Each section answers one beginner question. Nothing here requires a wallet until you decide to trade or inspect personal activity.</p></div><div className="guide-steps">{steps.map((step) => <article className="guide-step" key={step.number}><span className="guide-number">{step.number}</span><div><h3>{step.title}</h3><p>{step.text}</p><button onClick={() => go(step.page)}>{step.action} <span>↗</span></button></div></article>)}</div></section>
+    <section className="guide-section"><div className="section-heading"><span className="label">THE BASICS</span><h2>Three ideas to keep in mind.</h2></div><div className="guide-basics"><article><span className="basic-icon">◈</span><h3>MON/USDC</h3><p><b>MON</b> is the asset being traded. <b>USDC</b> is the quote currency. Buying MON means spending USDC to receive MON.</p></article><article><span className="basic-icon">↕</span><h3>Order book</h3><p>A list of buy and sell interest. The <b>best bid</b> is the highest buyer; the <b>best ask</b> is the cheapest seller; the spread is the difference.</p></article><article><span className="basic-icon">⌁</span><h3>Gas</h3><p>Gas is the computation and storage cost paid for an on-chain transaction. It is measured from transaction receipts, not guessed from a chart.</p></article></div></section>
+    <section className="guide-section source-section"><div className="section-heading"><span className="label">WHO DOES WHAT?</span><h2>One market, three layers.</h2></div><div className="source-flow"><div><strong>Kuru</strong><span>Real MON/USDC trading venue</span></div><i>→</i><div><strong>Envio</strong><span>Indexed orders, trades, and cancellations</span></div><i>→</i><div><strong>PageSync</strong><span>Market context and storage/gas intelligence</span></div></div></section>
+    <section className="guide-section"><div className="section-heading"><span className="label">WALLET OPTIONAL</span><h2>Connect only when you need to act.</h2><p>Public market information is available without MetaMask. A wallet is needed for personal activity, margin funding, placing Kuru orders, or writing to the PageSync reference contract.</p></div><div className="wallet-journey"><div><span>01</span><b>Browse publicly</b><small>Overview · Markets · Activity · Watch</small></div><div><span>02</span><b>Connect safely</b><small>Monad Testnet · wallet approval</small></div><div><span>03</span><b>Act or inspect</b><small>Orders · Kuru · live transactions</small></div></div></section>
+    <section className="guide-footer-callout"><div><span className="label">READY TO EXPLORE?</span><h2>Start with the market, then follow the evidence.</h2></div><Button onClick={() => go('home')}>Open Overview →</Button></section>
+  </Page>;
+}
+
 function Trade({ wallet, go }) {
   const [side, setSide] = useState(0);
   const [price, setPrice] = useState('');
@@ -597,16 +715,30 @@ function OrderTable({ title, rows, empty }) {
   return <div className="book-table"><h3>{title}</h3><div className="book-head"><span>Price</span><span>Quantity</span></div>{rows.length ? rows.map((order) => <div className="book-row" key={order.id}><span>{order.price}</span><span>{order.quantity}</span></div>) : <p className="empty-state">{empty}</p>}</div>;
 }
 
-function Home({ go }) {
-  return <Page home><section className="hero"><div><span className="label">PAGESYNC / SMART CONTRACT STORAGE OPTIMIZER</span><h1>Analyze. Optimize.<br /><em>Measure. Verify.</em></h1><p>Understand Solidity storage layouts, compare compact representations, and verify the result with a real Monad Testnet transaction.</p><div className="actions"><Button onClick={() => go('trade')}>Open optimization demo →</Button><Button secondary onClick={() => go('analyzer')}>Analyze Solidity struct</Button><Button secondary onClick={() => go('benchmark')}>Compare gas</Button></div></div><div className="hero-art"><div className="art-grid">{Array.from({ length: 16 }, (_, index) => <i className={index % 3 === 0 ? 'lit' : ''} key={index} />)}</div><span>analyze / optimize / measure / verify</span></div></section><div className="feature-grid"><Feature number="01" title="Struct Analyzer" text="Map Solidity types to storage slots, offsets, and packing groups." onClick={() => go('analyzer')} /><Feature number="02" title="On-Chain Optimization Demo" text="Create a real order and inspect how PageSync writes its compact layout." onClick={() => go('trade')} /><Feature number="03" title="Receipt Evidence" text="Compare actual gas from Monad Testnet against conventional storage benchmarks." onClick={() => go('benchmark')} /></div></Page>;
-}
-
-function Feature({ number, title, text, onClick }) { return <button className="feature" onClick={onClick}><span>{number}</span><h2>{title} ↗</h2><p>{text}</p></button>; }
 function Page({ title, eyebrow, intro, children, home }) { return <main className={home ? 'page home-page' : 'page'}>{!home && <header className="page-title"><span className="label">{eyebrow}</span><h1>{title}</h1><p>{intro}</p></header>}{children}</main>; }
 
 export default function App() {
   const [page, setPage] = useState('home');
   const wallet = useWallet();
-  const content = useMemo(() => ({ home: <Home go={setPage} />, trade: <Trade wallet={wallet} go={setPage} />, kuru: <KuruWorkspace wallet={wallet} go={setPage} />, activity: <Activity />, analyzer: <Analyzer />, inspector: <Inspector />, benchmark: <Benchmark />, research: <Research /> }[page]), [page, wallet]);
-  return <div className="app-shell"><aside className="sidebar"><button className="logo" onClick={() => setPage('home')}><span>PS</span><b>Page<span>Sync</span></b></button><nav><button className={page === 'home' ? 'active' : ''} onClick={() => setPage('home')}>Overview</button><button className={page === 'kuru' ? 'active live-nav' : 'live-nav'} onClick={() => setPage('kuru')}>Kuru Market <span>LIVE</span></button><button className={page === 'activity' ? 'active' : ''} onClick={() => setPage('activity')}>Activity</button><p>PRODUCT / TOOLS</p><button className={page === 'trade' ? 'active' : ''} onClick={() => setPage('trade')}>Optimization Demo</button><button className={page === 'analyzer' ? 'active' : ''} onClick={() => setPage('analyzer')}>Struct Analyzer</button><button className={page === 'inspector' ? 'active' : ''} onClick={() => setPage('inspector')}>Storage Inspector</button><button className={page === 'benchmark' ? 'active' : ''} onClick={() => setPage('benchmark')}>Gas Benchmark</button><p>RESEARCH</p><button className={page === 'research' ? 'active' : ''} onClick={() => setPage('research')}>Monad Case Study</button></nav><div className="sidebar-foot"><span className="dot" /> Monad Testnet <small>chain 10143</small></div></aside><div className="main"><header className="topbar"><span>PageSync / {page === 'home' ? 'Workspace' : page}</span><span className="top-status">{wallet.account ? `● ${shortAddress(wallet.account)}` : '● connect wallet to inspect'}</span></header>{content}<footer>PageSync — smart contract storage optimizer <span>Analyze · Optimize · Measure · Verify</span></footer></div></div>;
+  const content = useMemo(() => ({
+    home: <Overview go={setPage} wallet={wallet} />,
+    guide: <Guide go={setPage} />,
+    markets: <Markets go={setPage} />,
+    activity: <Activity />,
+    orders: <MyOrders wallet={wallet} go={setPage} />,
+    watch: <Watch go={setPage} />,
+    gas: <Benchmark />,
+    tools: <Research />,
+    trade: <Trade wallet={wallet} go={setPage} />,
+    kuru: <KuruWorkspace wallet={wallet} go={setPage} />,
+    analyzer: <Analyzer />,
+    inspector: <Inspector />,
+    benchmark: <Benchmark />,
+    research: <Research />,
+  }[page]), [page, wallet]);
+  const nav = (id, label) => <button className={page === id ? 'active' : ''} onClick={() => setPage(id)}>{label}</button>;
+  return <div className="app-shell"><aside className="sidebar"><button className="logo" onClick={() => setPage('home')}><span>PS</span><b>Page<span>Sync</span></b></button><nav>
+    {nav('home', 'Overview')}{nav('guide', 'How to use')}{nav('markets', 'Markets')}{nav('activity', 'Activity')}{nav('orders', 'My Orders')}{nav('watch', 'Watch')}
+    <p>INTELLIGENCE</p>{nav('gas', 'Gas & Storage')}{nav('tools', 'Developer Tools')}<p>OPTIONAL TRADING</p><button className={page === 'kuru' ? 'active live-nav' : 'live-nav'} onClick={() => setPage('kuru')}>Kuru Market <span>LIVE</span></button><p>REFERENCE WORKSPACES</p>{nav('trade', 'Optimization Demo')}{nav('analyzer', 'Struct Analyzer')}{nav('inspector', 'Storage Inspector')}{nav('research', 'Monad Case Study')}
+  </nav><div className="sidebar-foot"><span className="dot" /> Monad Testnet <small>chain 10143</small></div></aside><div className="main"><header className="topbar"><span>PageSync / {page === 'home' ? 'Overview' : page}</span><span className="top-status">{wallet.account ? `● ${shortAddress(wallet.account)}` : '● public market view'}</span></header>{content}<footer>PageSync — onchain market intelligence <span>Market · Activity · Cost · Storage</span></footer></div></div>;
 }
