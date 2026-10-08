@@ -11,6 +11,7 @@ networks:
       - name: NaiveOrderBook
         address:
           - "0x9eDDb8B7612954014Af0fFA58dc9d93dB2C75d68"
+        start_block: 68348601
         abi_file_path: ./abis/IOrderBook.json
         handler: ./src/handlers/OrderBookHandler.js
         events:
@@ -22,6 +23,7 @@ networks:
       - name: PageSyncOrderBook
         address:
           - "0x5De52bC09A2A688f6c4615099465e9049CC83bC1"
+        start_block: 68348609
         abi_file_path: ./abis/IOrderBook.json
         handler: ./src/handlers/OrderBookHandler.js
         events:
