@@ -1,0 +1,23 @@
+#!/bin/bash
+echo "--- Preparing Envio Dependency Repair ---"
+# Ensure we are in the correct directory
+cd /mnt/d/codes/Monad-PageSync/envio
+
+# Setup Node path
+export PATH=/home/nalin/node-v22.23.3-linux-x64/bin:$PATH
+
+echo "Node version: $(node -v)"
+echo "NPM version: $(npm -v)"
+
+echo "--- Running NPM Install ---"
+# Use --no-audit and --no-fund to reduce noise and potential hang-ups
+npm install --no-audit --no-fund
+
+echo "--- Verifying Native Addon ---"
+if [ -d "node_modules/envio-linux-x64" ]; then
+    echo "envio-linux-x64 directory found."
+    node -e "try { require('./node_modules/envio-linux-x64/envio.node'); console.log('Addon loaded successfully'); } catch (e) { console.error('Addon load failed: ' + e.message); process.exit(1); }"
+else
+    echo "ERROR: envio-linux-x64 directory NOT found after install."
+    exit 1
+fi
