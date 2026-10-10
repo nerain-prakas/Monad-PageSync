@@ -4,9 +4,10 @@
 name: monad-pagesync
 description: Indexes order-book events from NaiveOrderBook and PageSyncOrderBook on Monad Testnet
 
-networks:
+chains:
   - id: 10143           # Monad Testnet chain ID
-    start_block: 0
+    rpc: "https://testnet-rpc.monad.xyz"
+    start_block: 68348601
     contracts:
       - name: NaiveOrderBook
         address:
@@ -35,6 +36,7 @@ networks:
       - name: KuruMarket
         address:
           - "0xa241896A7Dbe8a550D2E5fF7A914bB1989ceD2D9"
+        start_block: 68348601
         abi_file_path: ./abis/KuruMarket.json
         handler: ./src/handlers/KuruMarketHandler.js
         events:

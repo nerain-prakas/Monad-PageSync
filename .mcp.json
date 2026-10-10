@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "envio": {
+      "type": "http",
+      "url": "https://docs.envio.dev/mcp"
+    }
+  }
+}

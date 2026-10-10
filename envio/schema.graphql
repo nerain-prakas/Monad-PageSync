@@ -1,83 +1,83 @@
 # Envio schema for Monad-PageSync order-book events
 
 type OrderPlaced {
-  id                String!   # unique event id: <txHash>-<logIndex>
-  orderId           String!   # on-chain order ID (uint256 as string)
-  trader            String!   # trader address
-  price             String!   # price (uint256 as string)
-  quantity          String!   # quantity (uint256 as string)
-  side              Int!      # 0 = BUY, 1 = SELL
-  contractAddress   String!   # which contract emitted this event
-  blockNumber       Int!
-  blockTimestamp    Int!
-  transactionHash   String!
+  id: String!   # unique event id: <txHash>-<logIndex>
+  orderId: String!   # on-chain order ID (uint256 as string)
+  trader: String!   # trader address
+  price: String!   # price (uint256 as string)
+  quantity: String!   # quantity (uint256 as string)
+  side: Int!      # 0 = BUY, 1 = SELL
+  contractAddress: String!   # which contract emitted this event
+  blockNumber: Int!
+  blockTimestamp: Int!
+  transactionHash: String!
 }
 
 type OrderUpdated {
-  id                String!
-  orderId           String!
-  price             String!
-  quantity          String!
-  contractAddress   String!
-  blockNumber       Int!
-  blockTimestamp    Int!
-  transactionHash   String!
+  id: String!
+  orderId: String!
+  price: String!
+  quantity: String!
+  contractAddress: String!
+  blockNumber: Int!
+  blockTimestamp: Int!
+  transactionHash: String!
 }
 
 type OrderCancelled {
-  id                String!
-  orderId           String!
-  contractAddress   String!
-  blockNumber       Int!
-  blockTimestamp    Int!
-  transactionHash   String!
+  id: String!
+  orderId: String!
+  contractAddress: String!
+  blockNumber: Int!
+  blockTimestamp: Int!
+  transactionHash: String!
 }
 
 type TradeExecuted {
-  id                String!
-  orderId           String!
-  price             String!
-  quantity          String!
-  contractAddress   String!
-  blockNumber       Int!
-  blockTimestamp    Int!
-  transactionHash   String!
+  id: String!
+  orderId: String!
+  price: String!
+  quantity: String!
+  contractAddress: String!
+  blockNumber: Int!
+  blockTimestamp: Int!
+  transactionHash: String!
 }
 
 type KuruOrderCreated {
-  id String!
-  orderId String!
-  owner String!
-  size String!
-  price String!
-  isBuy Boolean!
-  marketAddress String!
-  blockNumber Int!
-  blockTimestamp Int!
-  transactionHash String!
+  id: String!
+  orderId: String!
+  owner: String!
+  size: String!
+  price: String!
+  isBuy: Boolean!
+  marketAddress: String!
+  blockNumber: Int!
+  blockTimestamp: Int!
+  transactionHash: String!
 }
 
 type KuruTrade {
-  id String!
-  orderId String!
-  makerAddress String!
-  takerAddress String!
-  price String!
-  updatedSize String!
-  filledSize String!
-  isBuy Boolean!
-  marketAddress String!
-  blockNumber Int!
-  blockTimestamp Int!
-  transactionHash String!
+  id: String!
+  orderId: String!
+  makerAddress: String!
+  takerAddress: String!
+  price: String!
+  updatedSize: String!
+  filledSize: String!
+  isBuy: Boolean!
+  marketAddress: String!
+  blockNumber: Int!
+  blockTimestamp: Int!
+  transactionHash: String!
 }
 
 type KuruOrdersCanceled {
-  id String!
-  orderIds String!
-  owner String!
-  marketAddress String!
-  blockNumber Int!
-  blockTimestamp Int!
-  transactionHash String!
+  id: String!
+  orderIds: String!
+  owner: String!
+  marketAddress: String!
+  blockNumber: Int!
+  blockTimestamp: Int!
+  transactionHash: String!
 }

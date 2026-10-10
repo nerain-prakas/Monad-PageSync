@@ -4,49 +4,24 @@
  * Both NaiveOrderBook and PageSyncOrderBook emit the same events;
  * we handle them with the same functions and tag the contractAddress
  * so the dashboard can distinguish sources.
- *
- * Docs: https://docs.envio.dev/docs/event-handlers
  */
 
-// ---------------------------------------------------------------------------
-// OrderPlaced
-// ---------------------------------------------------------------------------
-
-NaiveOrderBook.OrderPlaced.handler(async ({ event, context }) => {
+const handleOrderPlaced = async ({ event, context }) => {
   await context.OrderPlaced.set({
     id             : `${event.transaction.hash}-${event.logIndex}`,
     orderId        : event.params.orderId.toString(),
     trader         : event.params.trader.toLowerCase(),
     price          : event.params.price.toString(),
     quantity       : event.params.quantity.toString(),
-    side           : event.params.side,
+    side           : Number(event.params.side),
     contractAddress: event.srcAddress.toLowerCase(),
     blockNumber    : event.block.number,
     blockTimestamp : event.block.timestamp,
     transactionHash: event.transaction.hash,
   });
-});
+};
 
-PageSyncOrderBook.OrderPlaced.handler(async ({ event, context }) => {
-  await context.OrderPlaced.set({
-    id             : `${event.transaction.hash}-${event.logIndex}`,
-    orderId        : event.params.orderId.toString(),
-    trader         : event.params.trader.toLowerCase(),
-    price          : event.params.price.toString(),
-    quantity       : event.params.quantity.toString(),
-    side           : event.params.side,
-    contractAddress: event.srcAddress.toLowerCase(),
-    blockNumber    : event.block.number,
-    blockTimestamp : event.block.timestamp,
-    transactionHash: event.transaction.hash,
-  });
-});
-
-// ---------------------------------------------------------------------------
-// OrderUpdated
-// ---------------------------------------------------------------------------
-
-NaiveOrderBook.OrderUpdated.handler(async ({ event, context }) => {
+const handleOrderUpdated = async ({ event, context }) => {
   await context.OrderUpdated.set({
     id             : `${event.transaction.hash}-${event.logIndex}`,
     orderId        : event.params.orderId.toString(),
@@ -57,26 +32,9 @@ NaiveOrderBook.OrderUpdated.handler(async ({ event, context }) => {
     blockTimestamp : event.block.timestamp,
     transactionHash: event.transaction.hash,
   });
-});
+};
 
-PageSyncOrderBook.OrderUpdated.handler(async ({ event, context }) => {
-  await context.OrderUpdated.set({
-    id             : `${event.transaction.hash}-${event.logIndex}`,
-    orderId        : event.params.orderId.toString(),
-    price          : event.params.price.toString(),
-    quantity       : event.params.quantity.toString(),
-    contractAddress: event.srcAddress.toLowerCase(),
-    blockNumber    : event.block.number,
-    blockTimestamp : event.block.timestamp,
-    transactionHash: event.transaction.hash,
-  });
-});
-
-// ---------------------------------------------------------------------------
-// OrderCancelled
-// ---------------------------------------------------------------------------
-
-NaiveOrderBook.OrderCancelled.handler(async ({ event, context }) => {
+const handleOrderCancelled = async ({ event, context }) => {
   await context.OrderCancelled.set({
     id             : `${event.transaction.hash}-${event.logIndex}`,
     orderId        : event.params.orderId.toString(),
@@ -85,24 +43,9 @@ NaiveOrderBook.OrderCancelled.handler(async ({ event, context }) => {
     blockTimestamp : event.block.timestamp,
     transactionHash: event.transaction.hash,
   });
-});
+};
 
-PageSyncOrderBook.OrderCancelled.handler(async ({ event, context }) => {
-  await context.OrderCancelled.set({
-    id             : `${event.transaction.hash}-${event.logIndex}`,
-    orderId        : event.params.orderId.toString(),
-    contractAddress: event.srcAddress.toLowerCase(),
-    blockNumber    : event.block.number,
-    blockTimestamp : event.block.timestamp,
-    transactionHash: event.transaction.hash,
-  });
-});
-
-// ---------------------------------------------------------------------------
-// TradeExecuted
-// ---------------------------------------------------------------------------
-
-NaiveOrderBook.TradeExecuted.handler(async ({ event, context }) => {
+const handleTradeExecuted = async ({ event, context }) => {
   await context.TradeExecuted.set({
     id             : `${event.transaction.hash}-${event.logIndex}`,
     orderId        : event.params.orderId.toString(),
@@ -113,17 +56,16 @@ NaiveOrderBook.TradeExecuted.handler(async ({ event, context }) => {
     blockTimestamp : event.block.timestamp,
     transactionHash: event.transaction.hash,
   });
-});
+};
 
-PageSyncOrderBook.TradeExecuted.handler(async ({ event, context }) => {
-  await context.TradeExecuted.set({
-    id             : `${event.transaction.hash}-${event.logIndex}`,
-    orderId        : event.params.orderId.toString(),
-    price          : event.params.price.toString(),
-    quantity       : event.params.quantity.toString(),
-    contractAddress: event.srcAddress.toLowerCase(),
-    blockNumber    : event.block.number,
-    blockTimestamp : event.block.timestamp,
-    transactionHash: event.transaction.hash,
-  });
-});
+// NaiveOrderBook registrations
+indexer.onEvent({ contract: "NaiveOrderBook", event: "OrderPlaced" }, handleOrderPlaced);
+indexer.onEvent({ contract: "NaiveOrderBook", event: "OrderUpdated" }, handleOrderUpdated);
+indexer.onEvent({ contract: "NaiveOrderBook", event: "OrderCancelled" }, handleOrderCancelled);
+indexer.onEvent({ contract: "NaiveOrderBook", event: "TradeExecuted" }, handleTradeExecuted);
+
+// PageSyncOrderBook registrations
+indexer.onEvent({ contract: "PageSyncOrderBook", event: "OrderPlaced" }, handleOrderPlaced);
+indexer.onEvent({ contract: "PageSyncOrderBook", event: "OrderUpdated" }, handleOrderUpdated);
+indexer.onEvent({ contract: "PageSyncOrderBook", event: "OrderCancelled" }, handleOrderCancelled);
+indexer.onEvent({ contract: "PageSyncOrderBook", event: "TradeExecuted" }, handleTradeExecuted);

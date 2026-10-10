@@ -3,7 +3,7 @@
  * the PageSync reference order-book events.
  */
 
-KuruMarket.OrderCreated.handler(async ({ event, context }) => {
+const handleOrderCreated = async ({ event, context }) => {
   await context.KuruOrderCreated.set({
     id: `${event.transaction.hash}-${event.logIndex}`,
     orderId: event.params.orderId.toString(),
@@ -16,9 +16,9 @@ KuruMarket.OrderCreated.handler(async ({ event, context }) => {
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
   });
-});
+};
 
-KuruMarket.Trade.handler(async ({ event, context }) => {
+const handleTrade = async ({ event, context }) => {
   await context.KuruTrade.set({
     id: `${event.transaction.hash}-${event.logIndex}`,
     orderId: event.params.orderId.toString(),
@@ -33,9 +33,9 @@ KuruMarket.Trade.handler(async ({ event, context }) => {
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
   });
-});
+};
 
-KuruMarket.OrdersCanceled.handler(async ({ event, context }) => {
+const handleOrdersCanceled = async ({ event, context }) => {
   await context.KuruOrdersCanceled.set({
     id: `${event.transaction.hash}-${event.logIndex}`,
     orderIds: event.params.orderId.map((id) => id.toString()).join(','),
@@ -45,4 +45,9 @@ KuruMarket.OrdersCanceled.handler(async ({ event, context }) => {
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
   });
-});
+};
+
+// KuruMarket registrations
+indexer.onEvent({ contract: "KuruMarket", event: "OrderCreated" }, handleOrderCreated);
+indexer.onEvent({ contract: "KuruMarket", event: "Trade" }, handleTrade);
+indexer.onEvent({ contract: "KuruMarket", event: "OrdersCanceled" }, handleOrdersCanceled);
