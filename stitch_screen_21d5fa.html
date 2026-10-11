@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RouteMap — Scroll-Bound 3D Wireframe City Extrusion</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/threejs/r125/three.min.js"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Space+Mono:ital,wght@0,400;0,700;1,400&amp;display=swap" rel="stylesheet"/>
+<style>
+    * { box-sizing: border-box; }
+    body {
+      background-color: #05060A;
+      color: #E8E4DC;
+      font-family: 'Space Mono', monospace;
+      margin: 0;
+      overflow-x: hidden;
+    }
+    
+    /* Chrome DevTools Exact Styling */
+    .route-map__pin {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      height: 100svh;
+      width: 100%;
+      overflow: hidden;
+      background-color: #05060A;
+      background-image: radial-gradient(90% 84% at 66% 45%, rgba(19, 31, 34, 0.16), transparent 72%),
+                        linear-gradient(rgba(5, 6, 10, 0.96), rgba(5, 6, 10, 0.3) 45%, rgba(5, 6, 10, 0.96));
+    }
+
+    /* DevTools Exact Mask Vignette */
+    .route-map__canvas-wrap {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      mask-image: radial-gradient(105% 92% at 58% 48%, #000 42%, transparent 96%);
+      -webkit-mask-image: radial-gradient(105% 92% at 58% 48%, #000 42%, transparent 96%);
+      opacity: 0.95;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* DevTools Atmospheric Scrim Gradients */
+    .route-map__scrim {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background-image: 
+        linear-gradient(90deg, rgba(5, 6, 10, 0.94) 0%, rgba(5, 6, 10, 0.45) 38%, transparent 68%),
+        linear-gradient(rgba(5, 6, 10, 0.65), transparent 22%, transparent 74%, rgba(5, 6, 10, 0.82));
+    }
+
+    /* Moving Technical Film Grain Layer */
+    .grain-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      opacity: 0.15;
+      background-image: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.08) 1px, transparent 1px);
+      background-size: 4px 4px;
+    }
+
+    /* Floating Tactical UI HUD elements */
+    .hud-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .hud-interactive {
+      pointer-events: auto;
+    }
+  </style>
+</head>
+<body class="bg-[#05060A] text-[#E8E4DC] antialiased selection:bg-red-900 selection:text-white">
+<!-- ========================================================
+       TOP FIXED NAVIGATION / STATUS TELEMETRY
+       ======================================================== -->
+<header class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-[#05060A]/80 backdrop-blur-md border-b border-[#22070B]">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-red-600 animate-ping"></div>
+<div class="w-2.5 h-2.5 -ml-4.5 rounded-full bg-red-500"></div>
+<span class="font-bold tracking-wider text-xs uppercase text-[#E8E4DC]">ROUTEMAP // MK-IV</span>
+<span class="px-2 py-0.5 text-[10px] uppercase font-mono tracking-widest bg-red-950/60 border border-red-800 text-red-400 rounded">Sector 07 Live</span>
+</div>
+<!-- Active Scroll Extrusion Telemetry Readout -->
+<div class="flex items-center gap-6 font-mono text-xs">
+<div class="hidden md:flex items-center gap-2">
+<span class="text-neutral-500 text-[11px]">SCROLL ELEVATION:</span>
+<span class="text-red-400 font-bold" id="nav-scroll-readout">0.00%</span>
+</div>
+<div class="hidden md:flex items-center gap-2">
+<span class="text-neutral-500 text-[11px]">CUBIC TOWERS:</span>
+<span class="text-neutral-300 font-bold">1,600</span>
+</div>
+<div class="flex items-center gap-2 px-3 py-1 bg-black/60 border border-neutral-800 rounded-full">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+<span class="text-[11px] text-emerald-400">60 FPS · WebGL 2.0</span>
+</div>
+</div>
+</header>
+<!-- ========================================================
+       HERO INTRO SECTION
+       ======================================================== -->
+<section class="min-h-[50vh] flex flex-col justify-end px-8 pb-12 pt-28 max-w-5xl mx-auto">
+<div class="inline-flex items-center gap-2 text-red-500 text-xs font-mono tracking-widest uppercase mb-3">
+<span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+      Scroll-Driven Procedural WebGL Matrix
+    </div>
+<h1 class="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white uppercase font-sans mb-4">
+      Reactive 3D Wireframe <br class="hidden sm:inline"/>
+<span class="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-rose-400 to-amber-500">City Extrusion</span>
+</h1>
+<p class="text-neutral-400 text-sm md:text-base max-w-2xl font-mono leading-relaxed">
+      A scroll-bound metropolitan surveillance matrix reverse-engineered from Chrome DevTools AI Assistance specs. As you scroll down the page, 1,600 dynamic wireframe cubes rise from the flat plane into a towering city skyline.
+    </p>
+<div class="mt-6 flex items-center gap-4 text-xs font-mono text-neutral-500">
+<div class="flex items-center gap-2">
+<svg class="w-4 h-4 text-red-500 animate-bounce" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 14l-7 7m0 0l-7-7m7 7V3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="text-red-400 font-semibold tracking-wider uppercase">Scroll down to extrude cubes</span>
+</div>
+<span>·</span>
+<span>Or drag the interactive slider below</span>
+</div>
+</section>
+<!-- ========================================================
+       TALL SCROLL TRACK WRAPPER (~2,800px tall)
+       ======================================================== -->
+<main class="relative w-full h-[2800px]" id="route-map-track">
+<!-- STICKY 100svh VIEWPORT CONTAINER (DevTools spec: .route-map__pin) -->
+<div class="route-map__pin">
+<!-- Atmospheric Scrim Gradients -->
+<div class="route-map__scrim"></div>
+<!-- Moving Film Grain Overlay -->
+<div class="grain-overlay"></div>
+<!-- Canvas Wrap with Radial Mask (DevTools spec) -->
+<div class="route-map__canvas-wrap" id="route-threejs-canvas-host">
+<!-- STITCH_THREEJS_START:ANIMATION_38 class="absolute inset-0 w-full h-full bg-transparent" -->
+<div class="absolute inset-0 w-full h-full bg-transparent" style="display:block;">
+<script src="https://ajax.googleapis.com/ajax/libs/threejs/r125/three.min.js"></script>
+<div id="threejs-container-ANIMATION_38" style="width:100%;height:100%"></div>
+<script>
+(function() {
+  const container = document.getElementById('threejs-container-ANIMATION_38');
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  // Scroll-Bound 3D Wireframe Extrusion Scene for Resident Evil: The Drive (re-the-drive.webflow.io)
+// High-density procedural wireframe matrix (40x40 = 1,600 cubic towers)
+// Exact DevTools Specs: EdgesGeometry, zero diagonal lines, glowing crimson 0xff1e28
+// Synchronized with scroll position and interactive scrub controls
+
+const host = (typeof container !== 'undefined' && container) ? container : 
+             (document.getElementById('route-threejs-canvas-host') || 
+              document.querySelector('threejs-scene') || 
+              document.body);
+
+const getW = () => host.clientWidth || window.innerWidth || 1440;
+const getH = () => host.clientHeight || window.innerHeight || 900;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x05060a, 0.016);
+
+// Perspective camera initialized with wide dynamic range
+const camera = new THREE.PerspectiveCamera(50, getW() / getH(), 0.1, 1000);
+camera.position.set(0, 38, 44);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ 
+  alpha: true, 
+  antialias: true,
+  powerPreference: 'high-performance'
+});
+renderer.setSize(getW(), getH());
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setClearColor(0x05060a, 0.0);
+renderer.domElement.className = 'route-map__canvas';
+renderer.domElement.style.width = '100%';
+renderer.domElement.style.height = '100%';
+renderer.domElement.style.display = 'block';
+renderer.domElement.style.position = 'absolute';
+renderer.domElement.style.top = '0';
+renderer.domElement.style.left = '0';
+renderer.domElement.style.pointerEvents = 'none'; // Lets natural page scrolling pass through
+host.appendChild(renderer.domElement);
+
+// Lighting
+const ambientLight = new THREE.AmbientLight(0xff2222, 1.6);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xff3333, 2.8);
+dirLight.position.set(20, 42, 24);
+scene.add(dirLight);
+
+// Master City Group
+const cityGroup = new THREE.Group();
+cityGroup.rotation.y = -Math.PI / 6; // ~30 deg isometric angle
+scene.add(cityGroup);
+
+// 40 x 40 grid = 1,600 cubes matching exact DevTools reverse-engineering specs
+const gridSize = 40;
+const count = gridSize * gridSize;
+const boxSize = 1.15;
+const spacing = 1.55;
+
+// Clean EdgesGeometry (Strictly NO diagonal triangulation lines)
+const baseBoxGeo = new THREE.BoxGeometry(boxSize, 1.0, boxSize);
+const edgesGeo = new THREE.EdgesGeometry(baseBoxGeo);
+
+// Glowing emissive crimson line material (DevTools color: 0xff1e28)
+const lineMaterial = new THREE.LineBasicMaterial({ 
+  color: 0xff1e28,
+  linewidth: 2,
+  transparent: true,
+  opacity: 0.95
+});
+
+const instancedCubes = new THREE.InstancedMesh(edgesGeo, lineMaterial, count);
+instancedCubes.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+cityGroup.add(instancedCubes);
+
+// Coordinate & baseline skyline caching
+const dummy = new THREE.Object3D();
+const gridData = new Float32Array(count * 4); // posX, posZ, dist, maxSkylineH
+
+for (let i = 0; i < count; i++) {
+  const gx = (i % gridSize) - gridSize / 2;
+  const gz = Math.floor(i / gridSize) - gridSize / 2;
+  const posX = gx * spacing;
+  const posZ = gz * spacing;
+  const dist = Math.sqrt(posX * posX + posZ * posZ);
+  
+  // Skyline equation: central skyscraper cluster with organic urban variation
+  const noise = Math.sin(gx * 0.38) * Math.cos(gz * 0.38);
+  const falloff = Math.max(0.06, 1.0 - (dist / (gridSize * spacing * 0.62)));
+  const maxH = 2.4 + Math.pow(falloff, 2.0) * 20.0 + noise * 4.0;
+
+  gridData[i * 4 + 0] = posX;
+  gridData[i * 4 + 1] = posZ;
+  gridData[i * 4 + 2] = dist;
+  gridData[i * 4 + 3] = maxH;
+
+  // Initial flat state (scale.y = 0.08)
+  dummy.position.set(posX, 0.04, posZ);
+  dummy.scale.set(1.0, 0.08, 1.0);
+  dummy.updateMatrix();
+  instancedCubes.setMatrixAt(i, dummy.matrix);
+}
+instancedCubes.instanceMatrix.needsUpdate = true;
+
+// Ground radar grid plane
+const groundGrid = new THREE.GridHelper(66, 34, 0x660c18, 0x1f0308);
+groundGrid.position.y = 0.0;
+cityGroup.add(groundGrid);
+
+// Tactical Waypoint Beacons (From Raccoon City storyline manifest)
+const hudBeacons = [
+  { name: 'ORIGIN', label: '23:58 // CITY LIMITS', color: 0xff3b30, x: -9, z: -7, targetH: 15, threshold: 0.15 },
+  { name: 'CHECKPOINT', label: '02:41 // CHECKPOINT LOST', color: 0xffaa00, x: 4, z: 2, targetH: 13, threshold: 0.50 },
+  { name: 'HOSPITAL', label: '04:17 // R.C. GENERAL', color: 0xff1e44, x: 11, z: -11, targetH: 19, threshold: 0.85 }
+];
+
+const beaconGroup = new THREE.Group();
+cityGroup.add(beaconGroup);
+
+const beaconMeshes = [];
+hudBeacons.forEach(b => {
+  const pinGeo = new THREE.SphereGeometry(0.75, 16, 16);
+  const pinMat = new THREE.MeshBasicMaterial({ color: b.color, transparent: true, opacity: 0.2 });
+  const pinMesh = new THREE.Mesh(pinGeo, pinMat);
+  pinMesh.position.set(b.x, 0.5, b.z);
+  beaconGroup.add(pinMesh);
+
+  const lineGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(b.x, 0, b.z),
+    new THREE.Vector3(b.x, 1, b.z)
+  ]);
+  const beamMat = new THREE.LineBasicMaterial({ color: b.color, transparent: true, opacity: 0.2 });
+  const beam = new THREE.Line(lineGeo, beamMat);
+  beaconGroup.add(beam);
+
+  beaconMeshes.push({ pin: pinMesh, beam: beam, b: b });
+});
+
+// Connecting Extraction Route Spline
+const arcCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-9, 16, -7),
+  new THREE.Vector3(-3, 22, -3),
+  new THREE.Vector3(4, 15, 2),
+  new THREE.Vector3(8, 23, -4),
+  new THREE.Vector3(11, 21, -11)
+]);
+const arcPoints = arcCurve.getPoints(60);
+const arcGeo = new THREE.BufferGeometry().setFromPoints(arcPoints);
+const arcMat = new THREE.LineBasicMaterial({ color: 0xff4f4f, linewidth: 2, transparent: true, opacity: 0.15 });
+const routeArc = new THREE.Line(arcGeo, arcMat);
+cityGroup.add(routeArc);
+
+// Scroll & Mouse state variables
+let scrollProgress = 0.0;
+let targetScroll = 0.0;
+let mouseX = 0, mouseY = 0;
+
+window.addEventListener('mousemove', (e) => {
+  mouseX = (e.clientX / window.innerWidth) - 0.5;
+  mouseY = (e.clientY / window.innerHeight) - 0.5;
+});
+
+// Global API hooked to both scroll listener and interactive slider
+window.updateRouteMapScroll = function(progress) {
+  targetScroll = Math.min(Math.max(progress, 0.0), 1.0);
+};
+
+// Automatic window scroll listener
+window.addEventListener('scroll', () => {
+  const track = document.getElementById('route-map-track') || document.body;
+  const maxScroll = track.offsetHeight - window.innerHeight;
+  if (maxScroll > 0) {
+    const rawProgress = Math.max(0, Math.min(1, window.scrollY / maxScroll));
+    window.updateRouteMapScroll(rawProgress);
+    
+    // Dispatch HUD update event
+    if (window.onRouteScrollUpdate) {
+      window.onRouteScrollUpdate(rawProgress);
+    }
+  }
+}, { passive: true });
+
+window.addEventListener('resize', () => {
+  const w = getW();
+  const h = getH();
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+});
+
+let clock = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  clock += 0.016;
+
+  // Smooth scroll interpolation (scrub damping)
+  scrollProgress += (targetScroll - scrollProgress) * 0.08;
+
+  // 1. Camera flight from bird's eye nadir down to dramatic low-angle perspective
+  // Scroll 0 (top): High nadir angle (Y: 38, Z: 44)
+  // Scroll 1 (bottom): Lower, cinematic isometric sweep (Y: 18, Z: 32)
+  const camY = 38.0 - (scrollProgress * 20.0);
+  const camZ = 44.0 - (scrollProgress * 12.0);
+  const camX = 18.0 * (1.0 - scrollProgress) * 0.4;
+
+  camera.position.x += ((camX + mouseX * 8.0) - camera.position.x) * 0.05;
+  camera.position.y += ((camY - mouseY * 6.0) - camera.position.y) * 0.05;
+  camera.position.z += (camZ - camera.position.z) * 0.05;
+  camera.lookAt(0, 3.5 * scrollProgress, 0);
+
+  // Subtle ambient city parallax & sway
+  cityGroup.rotation.y = -Math.PI / 6 + (mouseX * 0.18) + Math.sin(clock * 0.15) * 0.02;
+  cityGroup.rotation.x = (mouseY * 0.12);
+
+  // 2. Cube Growth Logic (The "Rise") directly bound to scrollProgress
+  // Inner cubes extrude upwards first and highest via proximity falloff
+  for (let i = 0; i < count; i++) {
+    const px = gridData[i * 4 + 0];
+    const pz = gridData[i * 4 + 1];
+    const dist = gridData[i * 4 + 2];
+    const maxH = gridData[i * 4 + 3];
+
+    // Inner buildings rise first, outer buildings follow smoothly
+    const normalizedDist = dist / (gridSize * spacing * 0.5);
+    const growthThreshold = Math.max(0.0, (scrollProgress * 1.35) - (normalizedDist * 0.35));
+    const effectiveProgress = Math.min(Math.max(growthThreshold, 0.0), 1.0);
+
+    // Subtle ambient breathing wave when extruded
+    const wave = effectiveProgress > 0.05 ? Math.sin(dist * 0.3 - clock * 1.8) * 0.8 * effectiveProgress : 0.0;
+    const dynamicH = Math.max(0.08, (maxH * effectiveProgress) + wave);
+
+    dummy.position.set(px, dynamicH * 0.5, pz);
+    dummy.scale.set(1.0, dynamicH, 1.0);
+    dummy.updateMatrix();
+    instancedCubes.setMatrixAt(i, dummy.matrix);
+  }
+  instancedCubes.instanceMatrix.needsUpdate = true;
+
+  // 3. Waypoint Beacon illumination when scroll surpasses checkpoints
+  beaconMeshes.forEach(({ pin, beam, b }) => {
+    const isLit = scrollProgress >= b.threshold;
+    const beaconH = Math.max(1.0, b.targetH * Math.min(scrollProgress / b.threshold, 1.0));
+    
+    pin.position.y = beaconH + 1.2;
+    pin.material.opacity = isLit ? (0.85 + Math.sin(clock * 4.0) * 0.15) : 0.2;
+    
+    // Update vertical beam points
+    beam.geometry.setFromPoints([
+      new THREE.Vector3(b.x, 0, b.z),
+      new THREE.Vector3(b.x, beaconH + 1.2, b.z)
+    ]);
+    beam.material.opacity = isLit ? 0.9 : 0.15;
+  });
+
+  // Route Arc opacity rises with extrusion
+  routeArc.material.opacity = Math.max(0.05, Math.min(0.95, (scrollProgress - 0.2) * 1.4));
+
+  renderer.render(scene, camera);
+}
+animate();
+
+})();
+</script>
+</div>
+<!-- STITCH_THREEJS_END:ANIMATION_38 -->
+</div>
+<!-- TACTICAL OVERLAY HUD SYSTEM -->
+<div class="hud-layer p-6 md:p-8 flex flex-col justify-between">
+<!-- Top Readout Row -->
+<div class="flex items-start justify-between">
+<!-- Route Monitor Briefing Card -->
+<div class="hud-interactive max-w-sm bg-[#090A10]/85 border border-[#33080F] backdrop-blur-md rounded-xl p-5 shadow-2xl">
+<div class="flex items-center justify-between text-[11px] font-mono mb-2">
+<span class="text-red-500 uppercase tracking-widest font-semibold flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                Sector 07 Surveillance
+              </span>
+<span class="px-2 py-0.5 rounded bg-red-950/80 text-red-400 text-[10px] border border-red-900">ACTIVE</span>
+</div>
+<h2 class="text-base font-bold text-white uppercase tracking-wider mb-2 font-sans">Spatial Route Matrix</h2>
+<p class="text-xs text-neutral-400 leading-relaxed font-mono mb-4">
+              1,600 cubic towers with <span class="text-red-400">EdgesGeometry</span> square outlines (zero diagonal lines). Inner towers extrude upwards first via distance falloff algorithms.
+            </p>
+<div class="grid grid-cols-3 gap-2 pt-3 border-t border-neutral-900 text-center font-mono">
+<div class="p-2 rounded bg-black/40 border border-neutral-800">
+<div class="text-[10px] text-neutral-500 uppercase">Est. Dist</div>
+<div class="text-xs font-bold text-neutral-200 mt-0.5">3.42 KM</div>
+</div>
+<div class="p-2 rounded bg-black/40 border border-neutral-800">
+<div class="text-[10px] text-neutral-500 uppercase">Mean Alt</div>
+<div class="text-xs font-bold text-red-400 mt-0.5" id="hud-altitude-readout">0.2 M</div>
+</div>
+<div class="p-2 rounded bg-black/40 border border-neutral-800">
+<div class="text-[10px] text-neutral-500 uppercase">Extraction</div>
+<div class="text-xs font-bold text-emerald-400 mt-0.5">HOSPITAL</div>
+</div>
+</div>
+</div>
+<!-- Live Waypoint Progress Indicator -->
+<div class="hidden sm:flex flex-col gap-2 font-mono text-xs">
+<div class="flex items-center gap-2.5 px-3 py-1.5 bg-black/60 border border-neutral-800 rounded-lg transition-all duration-300" id="wp-node-origin">
+<span class="w-2 h-2 rounded-full bg-red-500 opacity-40"></span>
+<span class="text-neutral-400 text-[11px]">23:58 // CITY LIMITS (ORIGIN)</span>
+<span class="text-[10px] text-neutral-600 font-mono">0.0 KM</span>
+</div>
+<div class="flex items-center gap-2.5 px-3 py-1.5 bg-black/60 border border-neutral-800 rounded-lg transition-all duration-300" id="wp-node-checkpoint">
+<span class="w-2 h-2 rounded-full bg-amber-500 opacity-40"></span>
+<span class="text-neutral-400 text-[11px]">02:41 // CHECKPOINT LOST</span>
+<span class="text-[10px] text-neutral-600 font-mono">1.8 KM</span>
+</div>
+<div class="flex items-center gap-2.5 px-3 py-1.5 bg-black/60 border border-neutral-800 rounded-lg transition-all duration-300" id="wp-node-hospital">
+<span class="w-2 h-2 rounded-full bg-rose-500 opacity-40"></span>
+<span class="text-neutral-400 text-[11px]">04:17 // R.C. GENERAL (SAFEHOUSE)</span>
+<span class="text-[10px] text-neutral-600 font-mono">3.4 KM</span>
+</div>
+</div>
+</div>
+<!-- Bottom Controller & Elevation Scrub Bar -->
+<div class="flex flex-col md:flex-row items-center justify-between gap-4 mt-auto">
+<!-- Interactive Scrub Slider & Status -->
+<div class="hud-interactive w-full md:w-auto flex-1 max-w-xl bg-[#090A10]/90 border border-[#33080F] backdrop-blur-md rounded-xl p-4 shadow-xl">
+<div class="flex items-center justify-between text-xs font-mono mb-2">
+<span class="text-neutral-400 flex items-center gap-2">
+<svg class="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+                DYNAMIC CUBE EXTRUSION
+              </span>
+<span class="text-red-400 font-bold" id="slider-percentage">0.00%</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-[10px] text-neutral-500 uppercase font-mono">Flat</span>
+<input class="w-full h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-red-500" id="manual-scroll-slider" max="100" min="0" type="range" value="0"/>
+<span class="text-[10px] text-neutral-500 uppercase font-mono">Extruded</span>
+</div>
+<div class="flex justify-between items-center text-[10px] text-neutral-500 mt-2">
+<span>Scroll page or drag slider</span>
+<span id="camera-angle-readout">Camera Pitch: -68.0° (Bird's Eye)</span>
+</div>
+</div>
+<!-- Camera Preset Perspectives -->
+<div class="hud-interactive flex items-center gap-2 bg-[#090A10]/90 border border-neutral-900 rounded-xl p-2 font-mono text-xs">
+<button class="px-3 py-1.5 rounded-lg bg-neutral-800 text-white font-semibold transition hover:bg-neutral-700" id="preset-nadir">NADIR (0%)</button>
+<button class="px-3 py-1.5 rounded-lg bg-black text-neutral-400 transition hover:text-white hover:bg-neutral-800" id="preset-mid">MID (50%)</button>
+<button class="px-3 py-1.5 rounded-lg bg-black text-neutral-400 transition hover:text-white hover:bg-neutral-800" id="preset-isometric">ISOMETRIC (100%)</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- ========================================================
+       FOOTER & METHODOLOGY SPECIFICATION
+       ======================================================== -->
+<footer class="relative z-20 bg-[#05060A] border-t border-[#1C0508] py-16 px-8">
+<div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 text-neutral-400 text-xs font-mono leading-relaxed">
+<div>
+<h3 class="text-white font-bold uppercase mb-3 font-sans">1. Sticky Viewport Setup</h3>
+<p>The container is pinned via <code class="text-red-400">position: sticky; top: 0; height: 100svh;</code> within a 2,800px track. This binds continuous mousewheel and touch scroll gestures directly to GPU uniforms.</p>
+</div>
+<div>
+<h3 class="text-white font-bold uppercase mb-3 font-sans">2. Proximity Extrusion Formula</h3>
+<p>Height scales dynamically via <code class="text-red-400">dummy.scale.y = maxH * effectiveProgress</code> with exponential falloff. Central towers elevate first, establishing an organic skyline.</p>
+</div>
+<div>
+<h3 class="text-white font-bold uppercase mb-3 font-sans">3. Camera Flight &amp; Shaders</h3>
+<p>The perspective camera sweeps down from an overhead bird's-eye nadir angle (Y:38) to an aggressive low-angle isometric viewpoint (Y:18) with synchronized waypoint reveals.</p>
+</div>
+</div>
+<div class="max-w-5xl mx-auto mt-12 pt-6 border-t border-neutral-900 flex justify-between text-[11px] text-neutral-600 font-mono">
+<span>RouteMap Surveillance Engine // Three.js r125</span>
+<span>Reverse-Engineered Chrome DevTools Specification</span>
+</div>
+</footer>
+<!-- ========================================================
+       SCROLL & SLIDER SYNC LOGIC
+       ======================================================== -->
+<script>
+    (function() {
+      const track = document.getElementById('route-map-track');
+      const slider = document.getElementById('manual-scroll-slider');
+      const navReadout = document.getElementById('nav-scroll-readout');
+      const sliderReadout = document.getElementById('slider-percentage');
+      const altReadout = document.getElementById('hud-altitude-readout');
+      const camReadout = document.getElementById('camera-angle-readout');
+
+      const wpOrigin = document.getElementById('wp-node-origin');
+      const wpCheckpoint = document.getElementById('wp-node-checkpoint');
+      const wpHospital = document.getElementById('wp-node-hospital');
+
+      let isManualSlider = false;
+
+      function updateUIProgress(pct) {
+        const pctFormatted = (pct * 100).toFixed(1) + '%';
+        if (navReadout) navReadout.textContent = pctFormatted;
+        if (sliderReadout) sliderReadout.textContent = pctFormatted;
+        if (!isManualSlider && slider) slider.value = (pct * 100).toFixed(0);
+
+        // Update altitude readout
+        if (altReadout) {
+          const currentAlt = (0.2 + pct * 21.4).toFixed(1);
+          altReadout.textContent = currentAlt + ' M';
+        }
+
+        // Update camera angle readout
+        if (camReadout) {
+          const pitch = (-68.0 + pct * 45.5).toFixed(1);
+          camReadout.textContent = `Camera Pitch: ${pitch}° (${pct > 0.7 ? 'Isometric' : pct > 0.3 ? 'Mid-Angle' : "Bird's Eye"})`;
+        }
+
+        // Update waypoint node highlights
+        if (wpOrigin) {
+          if (pct >= 0.15) {
+            wpOrigin.classList.remove('border-neutral-800');
+            wpOrigin.classList.add('border-red-600', 'bg-red-950/40');
+            wpOrigin.children[0].classList.remove('opacity-40');
+            wpOrigin.children[0].classList.add('opacity-100', 'animate-pulse');
+          } else {
+            wpOrigin.classList.add('border-neutral-800');
+            wpOrigin.classList.remove('border-red-600', 'bg-red-950/40');
+            wpOrigin.children[0].classList.add('opacity-40');
+            wpOrigin.children[0].classList.remove('opacity-100', 'animate-pulse');
+          }
+        }
+
+        if (wpCheckpoint) {
+          if (pct >= 0.50) {
+            wpCheckpoint.classList.remove('border-neutral-800');
+            wpCheckpoint.classList.add('border-amber-600', 'bg-amber-950/40');
+            wpCheckpoint.children[0].classList.remove('opacity-40');
+            wpCheckpoint.children[0].classList.add('opacity-100', 'animate-pulse');
+          } else {
+            wpCheckpoint.classList.add('border-neutral-800');
+            wpCheckpoint.classList.remove('border-amber-600', 'bg-amber-950/40');
+            wpCheckpoint.children[0].classList.add('opacity-40');
+            wpCheckpoint.children[0].classList.remove('opacity-100', 'animate-pulse');
+          }
+        }
+
+        if (wpHospital) {
+          if (pct >= 0.85) {
+            wpHospital.classList.remove('border-neutral-800');
+            wpHospital.classList.add('border-rose-600', 'bg-rose-950/40');
+            wpHospital.children[0].classList.remove('opacity-40');
+            wpHospital.children[0].classList.add('opacity-100', 'animate-pulse');
+          } else {
+            wpHospital.classList.add('border-neutral-800');
+            wpHospital.classList.remove('border-rose-600', 'bg-rose-950/40');
+            wpHospital.children[0].classList.add('opacity-40');
+            wpHospital.children[0].classList.remove('opacity-100', 'animate-pulse');
+          }
+        }
+
+        // Bridge directly to 3D scene
+        if (typeof window.updateRouteMapScroll === 'function') {
+          window.updateRouteMapScroll(pct);
+        }
+      }
+
+      window.onRouteScrollUpdate = function(pct) {
+        updateUIProgress(pct);
+      };
+
+      // Scroll Event Listener
+      window.addEventListener('scroll', () => {
+        if (!track) return;
+        const rect = track.getBoundingClientRect();
+        const scrollDistance = -rect.top;
+        const maxScroll = track.offsetHeight - window.innerHeight;
+        
+        if (maxScroll > 0) {
+          const rawPct = scrollDistance / maxScroll;
+          const clampedPct = Math.min(Math.max(rawPct, 0.0), 1.0);
+          updateUIProgress(clampedPct);
+        }
+      }, { passive: true });
+
+      // Slider Event Listener
+      if (slider) {
+        slider.addEventListener('input', (e) => {
+          isManualSlider = true;
+          const val = parseFloat(e.target.value) / 100.0;
+          updateUIProgress(val);
+          setTimeout(() => { isManualSlider = false; }, 200);
+        });
+      }
+
+      // Preset Buttons
+      document.getElementById('preset-nadir')?.addEventListener('click', () => {
+        updateUIProgress(0.0);
+        const topPos = track.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({ top: topPos, behavior: 'smooth' });
+      });
+
+      document.getElementById('preset-mid')?.addEventListener('click', () => {
+        updateUIProgress(0.5);
+        const topPos = track.getBoundingClientRect().top + window.scrollY + (track.offsetHeight - window.innerHeight) * 0.5;
+        window.scrollTo({ top: topPos, behavior: 'smooth' });
+      });
+
+      document.getElementById('preset-isometric')?.addEventListener('click', () => {
+        updateUIProgress(1.0);
+        const topPos = track.getBoundingClientRect().top + window.scrollY + (track.offsetHeight - window.innerHeight);
+        window.scrollTo({ top: topPos, behavior: 'smooth' });
+      });
+
+      // Initial check on load
+      setTimeout(() => {
+        updateUIProgress(0.0);
+      }, 300);
+    })();
+  </script>
+</body></html>
