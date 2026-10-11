@@ -48,6 +48,9 @@ const handleOrdersCanceled = async ({ event, context }) => {
 };
 
 // KuruMarket registrations
-indexer.onEvent({ contract: "KuruMarket", event: "OrderCreated" }, handleOrderCreated);
-indexer.onEvent({ contract: "KuruMarket", event: "Trade" }, handleTrade);
-indexer.onEvent({ contract: "KuruMarket", event: "OrdersCanceled" }, handleOrdersCanceled);
+const { setHandler } = require("../../node_modules/envio/src/HandlerRegister.res.mjs");
+
+// KuruMarket registrations
+setHandler("KuruMarket", "OrderCreated", handleOrderCreated);
+setHandler("KuruMarket", "Trade", handleTrade);
+setHandler("KuruMarket", "OrdersCanceled", handleOrdersCanceled);

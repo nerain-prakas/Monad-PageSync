@@ -58,14 +58,16 @@ const handleTradeExecuted = async ({ event, context }) => {
   });
 };
 
+const { setHandler } = require("../../node_modules/envio/src/HandlerRegister.res.mjs");
+
 // NaiveOrderBook registrations
-indexer.onEvent({ contract: "NaiveOrderBook", event: "OrderPlaced" }, handleOrderPlaced);
-indexer.onEvent({ contract: "NaiveOrderBook", event: "OrderUpdated" }, handleOrderUpdated);
-indexer.onEvent({ contract: "NaiveOrderBook", event: "OrderCancelled" }, handleOrderCancelled);
-indexer.onEvent({ contract: "NaiveOrderBook", event: "TradeExecuted" }, handleTradeExecuted);
+setHandler("NaiveOrderBook", "OrderPlaced", handleOrderPlaced);
+setHandler("NaiveOrderBook", "OrderUpdated", handleOrderUpdated);
+setHandler("NaiveOrderBook", "OrderCancelled", handleOrderCancelled);
+setHandler("NaiveOrderBook", "TradeExecuted", handleTradeExecuted);
 
 // PageSyncOrderBook registrations
-indexer.onEvent({ contract: "PageSyncOrderBook", event: "OrderPlaced" }, handleOrderPlaced);
-indexer.onEvent({ contract: "PageSyncOrderBook", event: "OrderUpdated" }, handleOrderUpdated);
-indexer.onEvent({ contract: "PageSyncOrderBook", event: "OrderCancelled" }, handleOrderCancelled);
-indexer.onEvent({ contract: "PageSyncOrderBook", event: "TradeExecuted" }, handleTradeExecuted);
+setHandler("PageSyncOrderBook", "OrderPlaced", handleOrderPlaced);
+setHandler("PageSyncOrderBook", "OrderUpdated", handleOrderUpdated);
+setHandler("PageSyncOrderBook", "OrderCancelled", handleOrderCancelled);
+setHandler("PageSyncOrderBook", "TradeExecuted", handleTradeExecuted);
