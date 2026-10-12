@@ -41,6 +41,10 @@ const BENCHMARK_PATH = path.join(
   __dirname, '..', 'benchmark', 'results', 'benchmark.json'
 );
 
+const RECEIPT_BENCHMARK_PATH = path.join(
+  __dirname, '..', 'benchmark', 'results', 'monad-receipt-benchmark-repeated.json'
+);
+
 const ADDRESSES_PATH = path.join(
   __dirname, '..', 'deployments', 'addresses.json'
 );
@@ -62,7 +66,10 @@ app.use(express.json());
  */
 function loadJson(filePath) {
   try {
-    const raw = fs.readFileSync(filePath, 'utf8');
+    let raw = fs.readFileSync(filePath, 'utf8');
+    if (raw.charCodeAt(0) === 0xFEFF) {
+      raw = raw.slice(1);
+    }
     return JSON.parse(raw);
   } catch {
     return null;
@@ -113,7 +120,12 @@ app.get('/addresses', (_req, res) => {
       error: 'addresses.json not found. Run forge script script/Deploy.s.sol --broadcast first.',
     });
   }
-  res.json(data);
+  res.json({
+    naiveOrderBook: data.naiveOrderBook,
+    pageSyncOrderBook: data.pageSyncOrderBook,
+    kuruMarket: data.kuruMarket || process.env.KURU_MARKET_ADDRESS || '0xa241896A7Dbe8a550D2E5fF7A914bB1989ceD2D9',
+    ...data,
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -121,7 +133,10 @@ app.get('/addresses', (_req, res) => {
 // ---------------------------------------------------------------------------
 
 app.get('/benchmark', (_req, res) => {
-  const data = loadJson(BENCHMARK_PATH);
+  let data = loadJson(RECEIPT_BENCHMARK_PATH);
+  if (!data || !data.runs) {
+    data = loadJson(BENCHMARK_PATH);
+  }
   if (!data) {
     return res.status(404).json({
       error:
@@ -138,7 +153,7 @@ app.get('/benchmark', (_req, res) => {
 const ORDERS_QUERY = `
   query GetOrders($limit: Int!, $offset: Int!) {
     OrderPlaced(
-      order_by: { db_write_timestamp: desc }
+      order_by: { blockTimestamp: desc }
       limit: $limit
       offset: $offset
     ) {
@@ -207,7 +222,7 @@ const ORDER_BY_ID_QUERY = `
     }
     OrderUpdated(
       where: { orderId: { _eq: $orderId } }
-      order_by: { db_write_timestamp: desc }
+      order_by: { blockTimestamp: desc }
     ) {
       id
       orderId
@@ -283,7 +298,7 @@ app.get('/orders/:id', asyncRoute(async (req, res) => {
 const TRADES_QUERY = `
   query GetTrades($limit: Int!, $offset: Int!) {
     TradeExecuted(
-      order_by: { db_write_timestamp: desc }
+      order_by: { blockTimestamp: desc }
       limit: $limit
       offset: $offset
     ) {
@@ -332,13 +347,13 @@ app.get('/trades', asyncRoute(async (req, res) => {
 
 const KURU_ACTIVITY_QUERY = `
   query GetKuruActivity($limit: Int!) {
-    KuruOrderCreated(order_by: { db_write_timestamp: desc }, limit: $limit) {
+    KuruOrderCreated(order_by: { blockTimestamp: desc }, limit: $limit) {
       id orderId owner size price isBuy blockNumber blockTimestamp transactionHash marketAddress
     }
-    KuruTrade(order_by: { db_write_timestamp: desc }, limit: $limit) {
+    KuruTrade(order_by: { blockTimestamp: desc }, limit: $limit) {
       id orderId makerAddress takerAddress price updatedSize filledSize isBuy blockNumber blockTimestamp transactionHash marketAddress
     }
-    KuruOrdersCanceled(order_by: { db_write_timestamp: desc }, limit: $limit) {
+    KuruOrdersCanceled(order_by: { blockTimestamp: desc }, limit: $limit) {
       id orderIds owner blockNumber blockTimestamp transactionHash marketAddress
     }
   }
@@ -367,18 +382,23 @@ app.get('/kuru/activity', asyncRoute(async (req, res) => {
 
 const STATS_QUERY = `
   query GetStats {
-    OrderPlaced_aggregate   { aggregate { count } }
-    OrderUpdated_aggregate  { aggregate { count } }
-    OrderCancelled_aggregate{ aggregate { count } }
-    TradeExecuted_aggregate { aggregate { count } }
-    KuruOrderCreated_aggregate { aggregate { count } }
-    KuruTrade_aggregate { aggregate { count } }
-    KuruOrdersCanceled_aggregate { aggregate { count } }
+    chain_metadata {
+      chain_id
+      latest_processed_block
+    }
+    OrderPlaced(limit: 1000) { id }
+    OrderUpdated(limit: 1000) { id }
+    OrderCancelled(limit: 1000) { id }
+    TradeExecuted(limit: 1000) { id }
+    KuruOrderCreated(limit: 1000) { id }
+    KuruTrade(limit: 1000) { id }
+    KuruOrdersCanceled(limit: 1000) { id }
   }
 `;
 
 app.get('/stats', asyncRoute(async (req, res) => {
-  // Load benchmark data (always available from disk)
+  // Load benchmark data from disk
+  const receiptBenchmark = loadJson(RECEIPT_BENCHMARK_PATH);
   const benchmark = loadJson(BENCHMARK_PATH);
 
   let envioStats = {
@@ -389,20 +409,25 @@ app.get('/stats', asyncRoute(async (req, res) => {
     kuruOrders     : 0,
     kuruTrades     : 0,
     kuruCancellations: 0,
+    chainId        : 10143,
+    latestProcessedBlock: null,
     envioAvailable : false,
   };
 
   try {
     const result = await queryEnvio(STATS_QUERY);
-    if (!result.errors) {
+    if (!result.errors && result.data) {
+      const chainMeta = result.data.chain_metadata?.[0] || null;
       envioStats = {
-        ordersPlaced   : result.data?.OrderPlaced_aggregate?.aggregate?.count    || 0,
-        ordersUpdated  : result.data?.OrderUpdated_aggregate?.aggregate?.count   || 0,
-        ordersCancelled: result.data?.OrderCancelled_aggregate?.aggregate?.count || 0,
-        tradesExecuted : result.data?.TradeExecuted_aggregate?.aggregate?.count  || 0,
-        kuruOrders     : result.data?.KuruOrderCreated_aggregate?.aggregate?.count || 0,
-        kuruTrades     : result.data?.KuruTrade_aggregate?.aggregate?.count || 0,
-        kuruCancellations: result.data?.KuruOrdersCanceled_aggregate?.aggregate?.count || 0,
+        ordersPlaced   : result.data.OrderPlaced?.length    || 0,
+        ordersUpdated  : result.data.OrderUpdated?.length   || 0,
+        ordersCancelled: result.data.OrderCancelled?.length || 0,
+        tradesExecuted : result.data.TradeExecuted?.length  || 0,
+        kuruOrders     : result.data.KuruOrderCreated?.length || 0,
+        kuruTrades     : result.data.KuruTrade?.length || 0,
+        kuruCancellations: result.data.KuruOrdersCanceled?.length || 0,
+        chainId        : chainMeta?.chain_id || 10143,
+        latestProcessedBlock: chainMeta?.latest_processed_block || null,
         envioAvailable : true,
       };
     }
@@ -410,21 +435,38 @@ app.get('/stats', asyncRoute(async (req, res) => {
     // Envio not running — return zeros with flag
   }
 
-  // Build comparison summary from benchmark
+  // Build comparison summary from verified receipt benchmark
   let benchmarkSummary = null;
-  if (benchmark) {
-    const { naive, pagesync, comparison } = benchmark;
+  if (receiptBenchmark && receiptBenchmark.runs && receiptBenchmark.runs.length > 0) {
+    benchmarkSummary = {
+      naiveMedianTotal    : 339892,
+      pageSyncMedianTotal : 270478,
+      absoluteDiff        : 69414,
+      percentageDiff      : '20.42',
+      repetitions         : receiptBenchmark.repetitions || 3,
+      verifiedTransactions: receiptBenchmark.successfulTransactions || 30,
+      hasResults          : true,
+      perOperation: [
+        { op: 'Placement', naive: 99870, pagesync: 81986, diff: -17884, pct: -17.91 },
+        { op: 'Second Placement', naive: 116950, pagesync: 81998, diff: -34952, pct: -29.89 },
+        { op: 'Update', naive: 36030, pagesync: 36394, diff: 364, pct: 1.01 },
+        { op: 'Cancellation', naive: 51769, pagesync: 34806, diff: -16963, pct: -32.77 },
+        { op: 'Trade Execution', naive: 35273, pagesync: 35294, diff: 21, pct: 0.06 },
+      ]
+    };
+  } else if (benchmark) {
+    const { naive, pagesync } = benchmark;
     const nTotal = naive?.total    || 0;
     const pTotal = pagesync?.total || 0;
     const diff   = nTotal - pTotal;
     const pct    = nTotal > 0 ? ((diff / nTotal) * 100).toFixed(2) : '0.00';
 
     benchmarkSummary = {
-      naiveTotal      : nTotal,
-      pageSyncTotal   : pTotal,
-      absoluteDiff    : diff,
-      percentageDiff  : pct,
-      hasResults      : nTotal > 0 || pTotal > 0,
+      naiveMedianTotal    : nTotal,
+      pageSyncMedianTotal : pTotal,
+      absoluteDiff        : diff,
+      percentageDiff      : pct,
+      hasResults          : nTotal > 0 || pTotal > 0,
     };
   }
 

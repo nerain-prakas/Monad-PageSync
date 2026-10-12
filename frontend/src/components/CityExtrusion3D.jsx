@@ -12,9 +12,44 @@ import * as THREE from 'three';
  *  - Dual theme support: 'crimson' (Resident Evil / Sector 07) & 'monad' (Electric Purple / Onchain Observatory)
  *  - Interactive mouse parallax & ambient breathing oscillation
  */
+function getThemeColors(theme) {
+  if (theme === 'crimson') {
+    return {
+      primary: 0xff1e28,
+      fog: 0x05060a,
+      ambient: 0xff2222,
+      dir: 0xff3333,
+      grid1: 0x660c18,
+      grid2: 0x1f0308,
+      arc: 0xff4f4f,
+    };
+  }
+  if (theme === 'dark' || theme === 'monad_dark') {
+    return {
+      primary: 0x7257ff,
+      fog: 0x07060d,
+      ambient: 0x7257ff,
+      dir: 0xa78bfa,
+      grid1: 0x4c1d95,
+      grid2: 0x1e153b,
+      arc: 0xc084fc,
+    };
+  }
+  // Default: 'white' or 'monad' (White Spatial Observatory)
+  return {
+    primary: 0x6342eb,
+    fog: 0xf8f9fc,
+    ambient: 0x6342eb,
+    dir: 0x0284c7,
+    grid1: 0xc7d2fe,
+    grid2: 0xe2e8f0,
+    arc: 0x0284c7,
+  };
+}
+
 export default function CityExtrusion3D({
   progress = 0,
-  theme = 'monad', // 'monad' | 'crimson'
+  theme = 'white', // 'white' (observatory) | 'dark' | 'crimson'
   highlightMode = 'standard', // 'standard' | 'storage_packed'
   onTelemetryUpdate,
 }) {
@@ -45,11 +80,11 @@ export default function CityExtrusion3D({
     const getW = () => container.clientWidth || window.innerWidth || 1440;
     const getH = () => container.clientHeight || window.innerHeight || 900;
 
+    const colors = getThemeColors(themeRef.current);
+
     // 1. Scene & Fog Setup
     const scene = new THREE.Scene();
-    const isMonad = themeRef.current === 'monad';
-    const fogColor = isMonad ? 0x07060d : 0x05060a;
-    scene.fog = new THREE.FogExp2(fogColor, 0.015);
+    scene.fog = new THREE.FogExp2(colors.fog, 0.015);
 
     // 2. Camera Setup
     const camera = new THREE.PerspectiveCamera(50, getW() / getH(), 0.1, 1000);
@@ -64,7 +99,7 @@ export default function CityExtrusion3D({
     });
     renderer.setSize(getW(), getH());
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setClearColor(fogColor, 0.0);
+    renderer.setClearColor(colors.fog, 0.0);
     renderer.domElement.className = 'city-extrusion-canvas';
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
@@ -76,10 +111,10 @@ export default function CityExtrusion3D({
     container.appendChild(renderer.domElement);
 
     // 4. Lighting Setup
-    const ambientLight = new THREE.AmbientLight(isMonad ? 0x7257ff : 0xff2222, 1.8);
+    const ambientLight = new THREE.AmbientLight(colors.ambient, 1.8);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(isMonad ? 0xa78bfa : 0xff3333, 2.8);
+    const dirLight = new THREE.DirectionalLight(colors.dir, 2.8);
     dirLight.position.set(20, 42, 24);
     scene.add(dirLight);
 
@@ -97,9 +132,8 @@ export default function CityExtrusion3D({
     const baseBoxGeo = new THREE.BoxGeometry(boxSize, 1.0, boxSize);
     const edgesGeo = new THREE.EdgesGeometry(baseBoxGeo);
 
-    const primaryColor = isMonad ? 0x7257ff : 0xff1e28;
     const lineMaterial = new THREE.LineBasicMaterial({
-      color: primaryColor,
+      color: colors.primary,
       linewidth: 2,
       transparent: true,
       opacity: 0.95,
@@ -138,9 +172,7 @@ export default function CityExtrusion3D({
     instancedCubes.instanceMatrix.needsUpdate = true;
 
     // 8. Ground Radar Grid Plane
-    const gridColor1 = isMonad ? 0x4c1d95 : 0x660c18;
-    const gridColor2 = isMonad ? 0x1e153b : 0x1f0308;
-    const groundGrid = new THREE.GridHelper(66, 34, gridColor1, gridColor2);
+    const groundGrid = new THREE.GridHelper(66, 34, colors.grid1, colors.grid2);
     groundGrid.position.y = 0.0;
     cityGroup.add(groundGrid);
 
@@ -184,9 +216,8 @@ export default function CityExtrusion3D({
     const beaconGroup = new THREE.Group();
     cityGroup.add(beaconGroup);
 
-    const beaconMeshes = [];
-    beaconsData.forEach((b) => {
-      const activeColor = isMonad ? b.colorMonad : b.colorCrimson;
+    const beaconMeshes = beaconsData.map((b) => {
+      const activeColor = themeRef.current === 'crimson' ? b.colorCrimson : b.colorMonad;
       const pinGeo = new THREE.SphereGeometry(0.75, 16, 16);
       const pinMat = new THREE.MeshBasicMaterial({ color: activeColor, transparent: true, opacity: 0.2 });
       const pinMesh = new THREE.Mesh(pinGeo, pinMat);
@@ -201,7 +232,7 @@ export default function CityExtrusion3D({
       const beam = new THREE.Line(lineGeo, beamMat);
       beaconGroup.add(beam);
 
-      beaconMeshes.push({ pin: pinMesh, beam: beam, b: b, pinMat, beamMat });
+      return { pin: pinMesh, beam: beam, b: b, pinMat, beamMat };
     });
 
     // 10. Connecting Route Spline Arc
@@ -215,10 +246,10 @@ export default function CityExtrusion3D({
     const arcPoints = arcCurve.getPoints(60);
     const arcGeo = new THREE.BufferGeometry().setFromPoints(arcPoints);
     const arcMat = new THREE.LineBasicMaterial({
-      color: isMonad ? 0xc084fc : 0xff4f4f,
+      color: colors.arc,
       linewidth: 2,
       transparent: true,
-      opacity: 0.15,
+      opacity: 0.25,
     });
     const routeArc = new THREE.Line(arcGeo, arcMat);
     cityGroup.add(routeArc);
@@ -363,6 +394,19 @@ export default function CityExtrusion3D({
       lineMaterial.dispose();
       arcGeo.dispose();
       arcMat.dispose();
+      beaconMeshes.forEach(({ pin, beam, pinMat, beamMat }) => {
+        pin.geometry.dispose();
+        pinMat.dispose();
+        beam.geometry.dispose();
+        beamMat.dispose();
+      });
+      groundGrid.geometry.dispose();
+      if (Array.isArray(groundGrid.material)) {
+        groundGrid.material.forEach((m) => m.dispose());
+      } else if (groundGrid.material) {
+        groundGrid.material.dispose();
+      }
+      sceneElementsRef.current = null;
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
@@ -387,22 +431,25 @@ export default function CityExtrusion3D({
 }
 
 function updateThemeColors(elements, theme) {
-  const isMonad = theme === 'monad';
-  const primaryColor = isMonad ? 0x7257ff : 0xff1e28;
-  const fogColor = isMonad ? 0x07060d : 0x05060a;
+  if (!elements) return;
+  const colors = getThemeColors(theme);
 
-  if (elements.scene.fog) {
-    elements.scene.fog.color.setHex(fogColor);
+  if (elements.scene?.fog) {
+    elements.scene.fog.color.setHex(colors.fog);
   }
-  elements.renderer.setClearColor(fogColor, 0.0);
-  elements.lineMaterial.color.setHex(primaryColor);
-  elements.ambientLight.color.setHex(isMonad ? 0x7257ff : 0xff2222);
-  elements.dirLight.color.setHex(isMonad ? 0xa78bfa : 0xff3333);
-  elements.routeArc.material.color.setHex(isMonad ? 0xc084fc : 0xff4f4f);
+  elements.renderer?.setClearColor(colors.fog, 0.0);
+  elements.lineMaterial?.color.setHex(colors.primary);
+  elements.ambientLight?.color.setHex(colors.ambient);
+  elements.dirLight?.color.setHex(colors.dir);
+  if (elements.routeArc?.material) {
+    elements.routeArc.material.color.setHex(colors.arc);
+  }
 
-  elements.beaconMeshes.forEach(({ pinMat, beamMat, b }) => {
-    const color = isMonad ? b.colorMonad : b.colorCrimson;
-    pinMat.color.setHex(color);
-    beamMat.color.setHex(color);
-  });
+  if (elements.beaconMeshes) {
+    elements.beaconMeshes.forEach(({ pinMat, beamMat, b }) => {
+      const color = theme === 'crimson' ? b.colorCrimson : b.colorMonad;
+      pinMat?.color.setHex(color);
+      beamMat?.color.setHex(color);
+    });
+  }
 }

@@ -12,11 +12,13 @@ async function get(path) {
 }
 
 export const api = {
-  health:    () => get('/health'),
-  benchmark: () => get('/benchmark'),
-  stats:     () => get('/stats'),
-  addresses: () => get('/addresses'),
-  orders:    (limit = 20) => get(`/orders?limit=${limit}`),
-  trades:    (limit = 20) => get(`/trades?limit=${limit}`),
-  order:     id => get(`/orders/${encodeURIComponent(id)}`),
+  health:       () => get('/health'),
+  benchmark:    () => get('/benchmark'),
+  stats:        () => get('/stats'),
+  addresses:    () => get('/addresses'),
+  orders:       (limit = 50) => get(`/orders?limit=${limit}`),
+  trades:       (limit = 50) => get(`/trades?limit=${limit}`),
+  kuruActivity: (limit = 50) => get(`/kuru/activity?limit=${limit}`),
+  order:        id => get(`/orders/${encodeURIComponent(id)}`),
 };
+

@@ -10,6 +10,9 @@ import {
 } from 'viem';
 import './App.css';
 import CityExtrusion3D from './components/CityExtrusion3D';
+import StorageBenchmark3D from './components/StorageBenchmark3D';
+import ActivityWorkspace from './components/ActivityWorkspace';
+import { api } from './api';
 
 // ========================================================
 // MONAD TESTNET & CONTRACT CONFIGURATION
@@ -333,43 +336,52 @@ export default function App() {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
-            3D Observatory
+            Observatory
           </button>
           <button
-            className={`nav-tab-btn ${activeTab === 'analyzer' ? 'active' : ''}`}
-            onClick={() => setActiveTab('analyzer')}
+            className={`nav-tab-btn ${activeTab === 'market' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('market');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           >
-            Struct Analyzer
+            Market
           </button>
           <button
-            className={`nav-tab-btn ${activeTab === 'inspector' ? 'active' : ''}`}
-            onClick={() => setActiveTab('inspector')}
+            className={`nav-tab-btn ${activeTab === 'activity' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('activity');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           >
-            Storage Inspector
+            Activity
           </button>
           <button
-            className={`nav-tab-btn ${activeTab === 'benchmark' ? 'active' : ''}`}
-            onClick={() => setActiveTab('benchmark')}
+            className={`nav-tab-btn ${activeTab === 'storage-lab' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('storage-lab');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           >
-            Gas Benchmark
+            Storage Lab
           </button>
           <button
-            className={`nav-tab-btn ${activeTab === 'demo' ? 'active' : ''}`}
-            onClick={() => setActiveTab('demo')}
+            className={`nav-tab-btn ${activeTab === 'benchmarks' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('benchmarks');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           >
-            Optimization Demo
+            Benchmarks
           </button>
           <button
-            className={`nav-tab-btn ${activeTab === 'kuru' ? 'active' : ''}`}
-            onClick={() => setActiveTab('kuru')}
+            className={`nav-tab-btn ${activeTab === 'dev-lab' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('dev-lab');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           >
-            Kuru Market
-          </button>
-          <button
-            className={`nav-tab-btn ${activeTab === 'guide' ? 'active' : ''}`}
-            onClick={() => setActiveTab('guide')}
-          >
-            Guide
+            Developer Lab
           </button>
         </nav>
 
@@ -409,9 +421,11 @@ export default function App() {
       </header>
 
       {/* ========================================================
-          HERO INTRO SECTION
+          HERO INTRO SECTION & 3D TRACK (OBSERVATORY WORKSPACE)
           ======================================================== */}
-      <section className="hero-intro-section">
+      {activeTab === 'observatory' && (
+        <>
+          <section className="hero-intro-section">
         <div className="hero-kicker-tag">
           <span className="hero-kicker-dot" />
           Scroll-Driven Procedural WebGL Matrix · Monad Testnet
@@ -601,39 +615,94 @@ export default function App() {
           </div>
         </div>
       </main>
+        </>
+      )}
 
       {/* ========================================================
           INTEGRATED PAGESYNC WORKSPACES (UNDER THE 3D SCENE)
           ======================================================== */}
+      {/* ========================================================
+          INTEGRATED PAGESYNC WORKSPACES
+          ======================================================== */}
       <section className="page-workspace-shell">
-        {/* STRUCT ANALYZER */}
-        {(activeTab === 'observatory' || activeTab === 'analyzer') && (
-          <StructAnalyzerSection />
+        {/* Workspace Quick-Back Header for non-observatory workspaces */}
+        {activeTab !== 'observatory' && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '28px',
+              paddingBottom: '16px',
+              borderBottom: '1px solid var(--line-border)',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+                PageSync Workspace Matrix
+              </div>
+              <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-pure)', margin: '4px 0 0' }}>
+                {activeTab === 'market' && 'Market // Kuru DEX Trading Venue'}
+                {activeTab === 'activity' && 'Activity // Monad Testnet Event Stream'}
+                {activeTab === 'storage-lab' && 'Storage Lab // Struct Compaction & Slot Inspector'}
+                {activeTab === 'benchmarks' && 'Benchmarks // Monad Receipt Gas & 3D Simulation'}
+                {activeTab === 'dev-lab' && 'Developer Lab // Onchain Interaction & Integration Guide'}
+              </h1>
+            </div>
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                setActiveTab('observatory');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              style={{ fontSize: '11px', padding: '6px 14px' }}
+            >
+              ← Return to 3D Observatory
+            </button>
+          </div>
         )}
 
-        {/* STORAGE INSPECTOR */}
-        {(activeTab === 'observatory' || activeTab === 'inspector') && (
-          <StorageInspectorSection />
+        {/* OBSERVATORY LAUNCHPAD & OVERVIEW */}
+        {activeTab === 'observatory' && (
+          <ObservatoryOverviewSection
+            onNavigate={(tab) => {
+              setActiveTab(tab);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
         )}
 
-        {/* GAS BENCHMARK EVIDENCE */}
-        {(activeTab === 'observatory' || activeTab === 'benchmark') && (
-          <GasBenchmarkSection />
-        )}
-
-        {/* LIVE OPTIMIZATION DEMO */}
-        {(activeTab === 'observatory' || activeTab === 'demo') && (
-          <OptimizationDemoSection wallet={wallet} />
-        )}
-
-        {/* KURU TRADING VENUE */}
-        {(activeTab === 'observatory' || activeTab === 'kuru') && (
+        {/* MARKET (KURU DEX ORDERBOOK) */}
+        {activeTab === 'market' && (
           <KuruWorkspaceSection wallet={wallet} />
         )}
 
-        {/* HOW TO USE GUIDE */}
-        {(activeTab === 'observatory' || activeTab === 'guide') && (
-          <GuideSection onNavigate={setActiveTab} />
+        {/* ACTIVITY (REAL-TIME INDEXED EVENTS) */}
+        {activeTab === 'activity' && (
+          <ActivityWorkspace />
+        )}
+
+        {/* STORAGE LAB (STRUCT ANALYZER + STORAGE INSPECTOR) */}
+        {activeTab === 'storage-lab' && (
+          <StorageLabSection />
+        )}
+
+        {/* BENCHMARKS (RECEIPT EVIDENCE + 3D STORAGE SIMULATION) */}
+        {activeTab === 'benchmarks' && (
+          <BenchmarksSection />
+        )}
+
+        {/* DEVELOPER LAB (LIVE CONTRACT INTERACTION + GUIDE) */}
+        {activeTab === 'dev-lab' && (
+          <DeveloperLabSection
+            wallet={wallet}
+            onNavigate={(tab) => {
+              setActiveTab(tab);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
         )}
       </section>
 
@@ -1379,10 +1448,12 @@ function KuruWorkspaceSection({ wallet }) {
 function GuideSection({ onNavigate }) {
   const steps = [
     { num: '01', title: '3D Matrix Surveillance', desc: 'Scroll down the track to extrude 1,600 cubes, inspect waypoints, and adjust camera angles.', action: 'observatory' },
-    { num: '02', title: 'Struct Analyzer', desc: 'Paste any Solidity struct to calculate exact byte offsets and slot packaging efficiency.', action: 'analyzer' },
-    { num: '03', title: 'Storage Inspector', desc: 'Compare the compiled 4-slot layout vs PageSync 2-slot packed layout.', action: 'inspector' },
-    { num: '04', title: 'Receipt Gas Benchmark', desc: 'Review 30 verified Monad Testnet transaction receipts showing 20.42% gas reduction.', action: 'benchmark' },
-    { num: '05', title: 'Live Optimization Demo', desc: 'Connect a wallet to write packed transactions and inspect receipts on Monad Explorer.', action: 'demo' },
+    { num: '02', title: 'Struct Packing Optimizer', desc: 'Paste any Solidity struct to calculate exact byte offsets and slot packaging efficiency.', action: 'storage-lab' },
+    { num: '03', title: 'Storage Slot Inspector', desc: 'Compare the compiled 4-slot layout vs PageSync 2-slot packed layout.', action: 'storage-lab' },
+    { num: '04', title: 'Receipt Gas Benchmark & 3D Simulation', desc: 'Review 30 verified Monad Testnet transaction receipts and test 3D slot clustering.', action: 'benchmarks' },
+    { num: '05', title: 'Live Optimization Demo', desc: 'Connect a wallet to write packed transactions and inspect receipts on Monad Explorer.', action: 'dev-lab' },
+    { num: '06', title: 'Kuru DEX Market Venue', desc: 'Inspect live orderbook, quotes, tick sizes, and market parameters.', action: 'market' },
+    { num: '07', title: 'Indexed Activity Stream', desc: 'Real-time ledger of orders and trades indexed from Monad Testnet via Envio.', action: 'activity' },
   ];
 
   return (
@@ -1411,11 +1482,281 @@ function GuideSection({ onNavigate }) {
               onClick={() => onNavigate(s.action)}
               style={{ fontSize: '10px', padding: '6px 10px' }}
             >
-              Open Step →
+              Open Workspace →
             </button>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ========================================================
+// UNIFIED WORKSPACE COMPOSITE SECTIONS
+// ========================================================
+
+function ObservatoryOverviewSection({ onNavigate }) {
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    api.stats().then(setStats).catch(() => {});
+  }, []);
+
+  const envioInfo = stats?.envio || {};
+
+  return (
+    <div className="glass-panel" id="section-observatory-overview">
+      <div className="panel-header-row">
+        <div>
+          <span className="section-eyebrow">OVERVIEW // MONAD TESTNET SURVEILLANCE</span>
+          <h2 className="panel-title">PageSync System Overview & Workspace Matrix</h2>
+        </div>
+        <span className="status-badge green">
+          <span className="fps-dot" style={{ background: '#10B981' }} />
+          CHAIN 10143 OPERATIONAL
+        </span>
+      </div>
+
+      <div className="grid-four-col" style={{ marginBottom: '24px' }}>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">Verified Gas Savings</span>
+          <strong className="metric-chip-val purple">-20.42%</strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">Indexed Monad Events</span>
+          <strong className="metric-chip-val green">
+            {(envioInfo.ordersPlaced || 0) + (envioInfo.tradesExecuted || 0) + (envioInfo.kuruOrders || 0)} Events
+          </strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">Target Indexer Block</span>
+          <strong className="metric-chip-val brand-color">
+            {envioInfo.latestProcessedBlock ? `#${Number(envioInfo.latestProcessedBlock).toLocaleString()}` : 'Live Head'}
+          </strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">Storage Architecture</span>
+          <strong className="metric-chip-val">2 Slots (Packed)</strong>
+        </div>
+      </div>
+
+      <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-pure)', marginBottom: '16px' }}>
+        Explore Dedicated Workspaces
+      </h3>
+
+      <div className="grid-three-col">
+        <div className="storage-slot-card">
+          <span style={{ fontSize: '11px', color: 'var(--active-brand)', fontWeight: 700 }}>01 // DEX TRADING</span>
+          <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-pure)', margin: '6px 0 8px' }}>Market</h4>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '14px' }}>
+            Kuru DEX orderbook venue, live market parameters, best bid/ask prices, and direct order placement on Monad Testnet.
+          </p>
+          <button className="btn-secondary" onClick={() => onNavigate('market')} style={{ fontSize: '11px', padding: '6px 12px' }}>
+            Open Market →
+          </button>
+        </div>
+
+        <div className="storage-slot-card">
+          <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 700 }}>02 // EVENT STREAM</span>
+          <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-pure)', margin: '6px 0 8px' }}>Activity</h4>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '14px' }}>
+            Real-time Envio indexer event stream of orders, executions, and Kuru trades with genuine block and transaction explorer links.
+          </p>
+          <button className="btn-secondary" onClick={() => onNavigate('activity')} style={{ fontSize: '11px', padding: '6px 12px' }}>
+            Open Activity →
+          </button>
+        </div>
+
+        <div className="storage-slot-card">
+          <span style={{ fontSize: '11px', color: '#0284C7', fontWeight: 700 }}>03 // STRUCT COMPACTION</span>
+          <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-pure)', margin: '6px 0 8px' }}>Storage Lab</h4>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '14px' }}>
+            Interactive Solidity struct packing analyzer and compiled slot layout inspector comparing 4-slot naive vs 2-slot PageSync layouts.
+          </p>
+          <button className="btn-secondary" onClick={() => onNavigate('storage-lab')} style={{ fontSize: '11px', padding: '6px 12px' }}>
+            Open Storage Lab →
+          </button>
+        </div>
+
+        <div className="storage-slot-card">
+          <span style={{ fontSize: '11px', color: '#D97706', fontWeight: 700 }}>04 // GAS RESEARCH</span>
+          <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-pure)', margin: '6px 0 8px' }}>Benchmarks</h4>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '14px' }}>
+            30 verified Monad Testnet transaction receipts plus interactive 3D WebGL storage page clustering visualizer.
+          </p>
+          <button className="btn-secondary" onClick={() => onNavigate('benchmarks')} style={{ fontSize: '11px', padding: '6px 12px' }}>
+            Open Benchmarks →
+          </button>
+        </div>
+
+        <div className="storage-slot-card">
+          <span style={{ fontSize: '11px', color: '#8B5CF6', fontWeight: 700 }}>05 // SMART CONTRACTS</span>
+          <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-pure)', margin: '6px 0 8px' }}>Developer Lab</h4>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '14px' }}>
+            Execute live on-chain order placement, updates, and cancellations on Monad Testnet, with step-by-step developer guide.
+          </p>
+          <button className="btn-secondary" onClick={() => onNavigate('dev-lab')} style={{ fontSize: '11px', padding: '6px 12px' }}>
+            Open Developer Lab →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StorageLabSection() {
+  const [activeSubTab, setActiveSubTab] = useState('analyzer');
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          gap: '10px',
+          marginBottom: '20px',
+          padding: '12px 16px',
+          background: 'var(--bg-surface-elevated)',
+          borderRadius: '10px',
+          border: '1px solid var(--line-border)',
+        }}
+      >
+        <button
+          className={`preset-chip-btn ${activeSubTab === 'analyzer' ? 'active' : ''}`}
+          onClick={() => setActiveSubTab('analyzer')}
+          style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600 }}
+        >
+          🔬 Struct Packing Optimizer
+        </button>
+        <button
+          className={`preset-chip-btn ${activeSubTab === 'inspector' ? 'active' : ''}`}
+          onClick={() => setActiveSubTab('inspector')}
+          style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600 }}
+        >
+          📦 Compiled Storage Layout Inspector
+        </button>
+      </div>
+
+      {activeSubTab === 'analyzer' ? <StructAnalyzerSection /> : <StorageInspectorSection />}
+    </div>
+  );
+}
+
+function BenchmarksSection() {
+  const [simMode, setSimMode] = useState('pagesync');
+  const simTriggerRef = useRef(null);
+  const [simActive, setSimActive] = useState(false);
+
+  const handleSimulate = () => {
+    setSimActive(true);
+    simTriggerRef.current?.trigger();
+    setTimeout(() => setSimActive(false), 1400);
+  };
+
+  return (
+    <div>
+      {/* 3D Storage Benchmark Visualizer Card */}
+      <div className="glass-panel" style={{ marginBottom: '28px' }}>
+        <div className="panel-header-row" style={{ flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <span className="section-eyebrow">WEBGL SIMULATION // STORAGE WORD CLUSTERING</span>
+            <h2 className="panel-title">3D Storage Page Allocation Simulator</h2>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              className={`preset-chip-btn ${simMode === 'pagesync' ? 'active' : ''}`}
+              onClick={() => setSimMode('pagesync')}
+            >
+              PageSync (Clustered 2-Slot)
+            </button>
+            <button
+              className={`preset-chip-btn ${simMode === 'conventional' ? 'active' : ''}`}
+              onClick={() => setSimMode('conventional')}
+            >
+              Conventional (Fragmented 4-Slot)
+            </button>
+            <button
+              className="btn-primary"
+              onClick={handleSimulate}
+              disabled={simActive}
+              style={{ padding: '6px 14px', fontSize: '11px' }}
+            >
+              {simActive ? '⚡ Simulating...' : '⚡ Simulate Workload Write'}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--line-hairline)' }}>
+          <StorageBenchmark3D mode={simMode} triggerRef={simTriggerRef} />
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '16px',
+            marginTop: '16px',
+          }}
+        >
+          <div className="info-callout">
+            <b>{simMode === 'pagesync' ? 'PageSync Clustering Pattern' : 'Conventional Fragmentation Pattern'}</b>
+            <p style={{ margin: 0, fontSize: '11px', lineHeight: '1.5' }}>
+              {simMode === 'pagesync'
+                ? 'Coalesced slots occupy adjacent 32-byte offsets within the same EVM memory page. The initial cold SLOAD (2,100 gas) warms the page, cutting all subsequent field access to warm SLOAD (100 gas) — saving 2,000 gas per slot.'
+                : 'Fields span across 4 disjoint storage slots. Each cold access incurs independent SSTORE (20,000 gas) and SLOAD (2,100 gas) overhead without page cache reuse.'}
+            </p>
+          </div>
+          <div className="info-callout" style={{ background: 'rgba(16, 185, 129, 0.06)', borderColor: 'rgba(16, 185, 129, 0.2)' }}>
+            <b>Hardware Alignment & Memory Hierarchy</b>
+            <p style={{ margin: 0, fontSize: '11px', lineHeight: '1.5' }}>
+              Monad execution threads execute transactions concurrently across parallel state queues. Reducing the number of unique storage keys touched per order lowers state access latency and minimizes lock contention.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Verified Monad Gas Benchmark Receipts */}
+      <GasBenchmarkSection />
+    </div>
+  );
+}
+
+function DeveloperLabSection({ wallet, onNavigate }) {
+  const [activeSubTab, setActiveSubTab] = useState('demo');
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          gap: '10px',
+          marginBottom: '20px',
+          padding: '12px 16px',
+          background: 'var(--bg-surface-elevated)',
+          borderRadius: '10px',
+          border: '1px solid var(--line-border)',
+        }}
+      >
+        <button
+          className={`preset-chip-btn ${activeSubTab === 'demo' ? 'active' : ''}`}
+          onClick={() => setActiveSubTab('demo')}
+          style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600 }}
+        >
+          ⚡ Live Optimization Demo (Testnet Transactions)
+        </button>
+        <button
+          className={`preset-chip-btn ${activeSubTab === 'guide' ? 'active' : ''}`}
+          onClick={() => setActiveSubTab('guide')}
+          style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600 }}
+        >
+          📖 Developer Integration Guide & Architecture
+        </button>
+      </div>
+
+      {activeSubTab === 'demo' ? (
+        <OptimizationDemoSection wallet={wallet} />
+      ) : (
+        <GuideSection onNavigate={onNavigate} />
+      )}
     </div>
   );
 }
