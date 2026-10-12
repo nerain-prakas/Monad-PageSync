@@ -185,3 +185,5 @@ pagesync-node/
 # Preserve useful project files
 # ==========================================
 !.gitkeep
+.cache/
+**/.cache/
