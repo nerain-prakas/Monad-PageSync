@@ -15,3 +15,170 @@ broadcast/
 # OS
 .DS_Store
 Thumbs.db
+# ==========================================
+# Environment variables and secrets
+# ==========================================
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Private keys, credentials, and local secrets
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+secrets/
+secrets.*
+credentials.json
+service-account*.json
+
+# ==========================================
+# Node.js / npm / frontend / backend
+# ==========================================
+node_modules/
+**/node_modules/
+
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.tsbuildinfo
+
+# Package manager caches
+.npm/
+.yarn/cache/
+.pnpm-store/
+
+# ==========================================
+# Frontend build output (Vite / React)
+# ==========================================
+dist/
+dist-ssr/
+.vite/
+**/.vite/
+
+# Coverage and test output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+
+# ==========================================
+# Foundry / Solidity
+# ==========================================
+out/
+cache/
+broadcast/
+lib/
+forge-cache/
+artifacts/
+typechain-types/
+
+# Keep Foundry configuration and source files tracked:
+# foundry.toml, src/, script/, test/
+
+# ==========================================
+# Envio / HyperIndex
+# ==========================================
+# Generated code and temporary artifacts
+envio/generated/
+envio/.env
+envio/.env.*
+envio/node_modules/
+
+# Local indexer state, if created inside the repository
+envio/.indexer/
+envio/.cache/
+envio/.temp/
+envio/tmp/
+
+# Do NOT ignore config.yaml, schema.graphql,
+# ABIs, or handler source files.
+
+# ==========================================
+# Database files and local database state
+# ==========================================
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.gz
+
+# PostgreSQL data directories
+pgdata/
+postgres-data/
+postgresql-data/
+
+# Local database exports/backups
+database-backups/
+db-backups/
+
+# ==========================================
+# Logs and temporary files
+# ==========================================
+logs/
+*.log
+npm-debug.log*
+yarn-error.log*
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.old
+
+# ==========================================
+# Operating system files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ==========================================
+# Editors and IDEs
+# ==========================================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+.idea/
+*.sublime-workspace
+*.code-workspace
+
+# ==========================================
+# Python / virtual environments (if used)
+# ==========================================
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+ENV/
+.pytest_cache/
+.mypy_cache/
+
+# ==========================================
+# Local deployment and machine-specific files
+# ==========================================
+*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Local agent/session artifacts
+.agent/
+.agents/
+.tmp/
+.temp/
+
+# ==========================================
+# Preserve useful project files
+# ==========================================
+!.gitkeep
