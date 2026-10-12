@@ -13,6 +13,8 @@ import CityExtrusion3D from './components/CityExtrusion3D';
 import StorageBenchmark3D from './components/StorageBenchmark3D';
 import ActivityWorkspace from './components/ActivityWorkspace';
 import { api } from './api';
+import { analyzeStruct, generateOptimizedStruct } from './storageLayout';
+import { verifyStructLayouts } from './solidityCompiler';
 
 // ========================================================
 // MONAD TESTNET & CONTRACT CONFIGURATION
@@ -39,6 +41,16 @@ const orderPlacedEvent = ORDER_BOOK_ABI.find((item) => item.type === 'event' && 
 const publicClient = createPublicClient({ chain: MONAD, transport: http(MONAD_RPC) });
 
 const KURU_MARKET_ADDRESS = '0xa241896A7Dbe8a550D2E5fF7A914bB1989ceD2D9';
+const KURU_USDC_ADDRESS = '0x3bA3d39AFcf8bb994f7964B3e0171Ea2Ba361570';
+const KURU_MARGIN_ACCOUNT_ADDRESS = '0xd029C2D98ff85D8F64799017fE00a59B1159CE02';
+const KURU_NATIVE_MON_ADDRESS = '0x0000000000000000000000000000000000000000';
+const KURU_ERC20_ABI = parseAbi([
+  'function balanceOf(address owner) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+]);
+const KURU_MARGIN_ABI = parseAbi([
+  'function getBalance(address user, address asset) view returns (uint256)',
+]);
 const KURU_ABI = parseAbi([
   'function bestBidAsk() view returns (uint256 bestBid, uint256 bestAsk)',
   'function getMarketParams() view returns (uint96 pricePrecision, uint96 sizePrecision, address baseAssetAddress, uint8 baseAssetDecimals, address quoteAssetAddress, uint8 quoteAssetDecimals, uint32 tickSize, uint96 minSize, uint96 maxSize, uint256 takerFeeBps, uint256 makerFeeBps)',
@@ -199,58 +211,6 @@ const sampleStructs = {
     uint256 feeGrowthInside1LastX128;
 }`,
 };
-
-const typeBytes = (type) => {
-  const match = type.match(/^(u?int|bytes)(\d+)?$/);
-  if (type === 'address') return 20;
-  if (type === 'bool') return 1;
-  if (match) return match[1] === 'bytes' ? Number(match[2] || 1) : Number(match[2] || 256) / 8;
-  return null;
-};
-
-function analyzeStruct(source) {
-  const structMatch = source.match(/struct\s+(\w+)\s*\{([\s\S]*?)\}/);
-  if (!structMatch) throw new Error('Paste a valid Solidity struct declaration (e.g. struct MyStruct { ... }).');
-  const fields = [];
-  for (const line of structMatch[2].split(';')) {
-    const clean = line.replace(/\/\/.*$/, '').trim();
-    if (!clean) continue;
-    const parts = clean.split(/\s+/);
-    if (parts.length !== 2 || !/^(address|bool|u?int(8|16|32|64|128|256)?|bytes([1-9]|[12]\d|3[0-2]))$/.test(parts[0])) {
-      throw new Error(`Unsupported type or syntax: "${clean}".`);
-    }
-    const bytes = typeBytes(parts[0]);
-    if (!bytes) throw new Error(`Unsupported type: ${parts[0]}.`);
-    fields.push({ name: parts[1], type: parts[0], bytes });
-  }
-  if (!fields.length) throw new Error('No valid struct fields found.');
-
-  const slots = [];
-  let current = { slot: 0, used: 0, fields: [] };
-  fields.forEach((field) => {
-    if (field.bytes === 32 || current.used + field.bytes > 32) {
-      if (current.fields.length) slots.push(current);
-      current = { slot: current.slot + (current.fields.length ? 1 : 0), used: 0, fields: [] };
-    }
-    field.offset = current.used;
-    field.slot = current.slot;
-    field.packingGroup = current.fields.length ? `group-${current.slot}` : `single-${current.slot}`;
-    current.fields.push(field);
-    current.used += field.bytes;
-  });
-  if (current.fields.length) slots.push(current);
-
-  const bytesUsed = fields.reduce((sum, field) => sum + field.bytes, 0);
-  return {
-    name: structMatch[1],
-    fields,
-    slots,
-    bytesUsed,
-    storageSlots: slots.length,
-    capacity: slots.length * 32,
-    unusedBytes: slots.length * 32 - bytesUsed,
-  };
-}
 
 const shortAddress = (addr) => (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '');
 const formatNum = (v) => Number(v).toLocaleString();
@@ -751,40 +711,153 @@ function StructAnalyzerSection() {
   const [analysis, setAnalysis] = useState(() => analyzeStruct(sampleStructs.Order));
   const [error, setError] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
+  const [verification, setVerification] = useState({ status: 'estimated' });
+  const [isVerifying, setIsVerifying] = useState(false);
+  const verificationRun = useRef(0);
+  const copyTimer = useRef(null);
 
-  const runAnalysis = () => {
+  useEffect(() => () => {
+    if (copyTimer.current) window.clearTimeout(copyTimer.current);
+  }, []);
+
+  const runAnalysis = async (input = source, presetName = '') => {
+    const runId = ++verificationRun.current;
+    setSelectedPreset(presetName);
+    setAnalysis(null);
+    setError('');
+    setCopyStatus(null);
+    setVerification({ status: 'pending' });
+    setIsVerifying(true);
+
+    let result;
     try {
-      setAnalysis(analyzeStruct(source));
-      setError('');
+      result = analyzeStruct(input);
     } catch (err) {
-      setAnalysis(null);
-      setError(err.message);
+      if (runId === verificationRun.current) {
+        setVerification({ status: 'failed', message: err.message });
+        setError(err.message);
+        setIsVerifying(false);
+      }
+      return;
+    }
+
+    setAnalysis(result);
+    try {
+      const optimizedDeclaration = generateOptimizedStruct(result);
+      const compilerResult = await verifyStructLayouts(
+        result,
+        input,
+        optimizedDeclaration
+      );
+      if (runId === verificationRun.current) {
+        setVerification({ status: 'verified', result: compilerResult });
+      }
+    } catch (err) {
+      if (runId === verificationRun.current) {
+        setVerification({ status: 'failed', message: err.message });
+      }
+    } finally {
+      if (runId === verificationRun.current) setIsVerifying(false);
     }
   };
 
   const loadPreset = (name) => {
-    setSelectedPreset(name);
     setSource(sampleStructs[name]);
-    try {
-      setAnalysis(analyzeStruct(sampleStructs[name]));
-      setError('');
-    } catch (err) {
-      setError(err.message);
-    }
+    void runAnalysis(sampleStructs[name], name);
   };
 
-  const copyToClipboard = (text, msg) => {
-    navigator.clipboard?.writeText(text);
-    setCopyStatus(msg);
-    setTimeout(() => setCopyStatus(''), 2000);
+  const updateSource = (value) => {
+    verificationRun.current += 1;
+    setSource(value);
+    setAnalysis(null);
+    setError('');
+    setCopyStatus(null);
+    setVerification({ status: 'estimated' });
+    setIsVerifying(false);
   };
+
+  const copyOptimizedStruct = async () => {
+    if (!analysis) return;
+    if (copyTimer.current) window.clearTimeout(copyTimer.current);
+    let timeoutId;
+    setCopyStatus({ status: 'copying', message: 'Copying the optimized declaration…' });
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard access is unavailable in this browser context.');
+      }
+      await Promise.race([
+        navigator.clipboard.writeText(generateOptimizedStruct(analysis)),
+        new Promise((_, reject) => {
+          timeoutId = window.setTimeout(() => {
+            reject(new Error('The clipboard request timed out. Check browser permissions and retry.'));
+          }, 5000);
+        }),
+      ]);
+      setCopyStatus({ status: 'success', message: 'Optimized struct copied to clipboard.' });
+    } catch (err) {
+      setCopyStatus({ status: 'error', message: `Copy failed: ${err.message}` });
+    } finally {
+      if (timeoutId) window.clearTimeout(timeoutId);
+    }
+    copyTimer.current = window.setTimeout(() => setCopyStatus(null), 5000);
+  };
+
+  const renderLayout = (layout, title, description, compilerSlotCount = null) => (
+    <section>
+      <h3 className="storage-layout-heading">{title}</h3>
+      <p className="storage-layout-description">{description}</p>
+      <div className="grid-three-col" style={{ marginBottom: '12px' }}>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">{compilerSlotCount === null ? 'Estimated slots' : 'Compiler slots'}</span>
+          <strong className="metric-chip-val purple">{compilerSlotCount ?? layout.storageSlots}</strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">Occupied bytes</span>
+          <strong className="metric-chip-val">{layout.bytesUsed} / {layout.capacity}</strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">Estimated padding</span>
+          <strong className="metric-chip-val">{layout.capacity - layout.bytesUsed} bytes</strong>
+        </div>
+      </div>
+      <div className="slot-block-list">
+        {layout.slots.map((slot) => (
+          <div className="storage-slot-card" key={`${title}-${slot.index}`}>
+            <div className="slot-header-bar">
+              <strong style={{ color: 'var(--text-pure)' }}>Slot {slot.index}</strong>
+              <span style={{ color: 'var(--text-dim)' }}>{slot.used}/32 bytes</span>
+            </div>
+            <div className="slot-visual-bar-32">
+              {slot.fields.map((field, index) => (
+                <div
+                  className="slot-field-segment"
+                  style={{ flexBasis: `${(field.bytes / 32) * 100}%` }}
+                  key={`${field.name}-${field.elementIndex ?? 'field'}-${index}`}
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
+            <ul className="slot-field-details">
+              {slot.fields.map((field, index) => (
+                <li key={`${field.name}-${field.elementIndex ?? 'field'}-${index}`}>
+                  <code>{field.elementIndex === undefined ? field.name : `${field.name}[${field.elementIndex}]`}</code>
+                  <span>{field.type}</span>
+                  <strong>{field.bytes} B</strong>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 
   return (
     <div className="glass-panel" id="section-analyzer">
       <div className="panel-header-row">
         <div>
           <span className="section-eyebrow">TOOL / SOLIDITY STORAGE ENGINE</span>
-          <h2 className="panel-title">Solidity Struct Slot Analyzer</h2>
+          <h2 className="panel-title">Universal Solidity Struct Optimizer</h2>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           {Object.keys(sampleStructs).map((name) => (
@@ -803,93 +876,135 @@ function StructAnalyzerSection() {
         {/* Input Column */}
         <div>
           <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-            PASTE SOLIDITY STRUCT DECLARATION:
+            PASTE ONE SOLIDITY STRUCT DECLARATION:
           </label>
           <textarea
             className="solidity-code-textarea"
             value={source}
-            onChange={(e) => setSource(e.target.value)}
+            onChange={(e) => updateSource(e.target.value)}
             spellCheck="false"
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
             <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
-              Supported: address · uint/int8–256 · bool · bytes1–32
+              Elementary types, one-dimensional arrays (fixed ≤256), mappings, string, bytes. User-defined/nested types are not supported yet.
             </span>
-            <button className="btn-primary" onClick={runAnalysis}>
-              Analyze Slots →
+            <button className="btn-primary" onClick={() => void runAnalysis()}>
+              {isVerifying ? 'Verifying…' : 'Optimize & Verify →'}
             </button>
           </div>
           {error && <div className="info-callout warning" style={{ marginTop: '14px' }}>{error}</div>}
+          <div className="info-callout warning storage-compatibility-warning" role="note">
+            <b>Storage compatibility warning</b>
+            <span>
+              Reordering struct fields changes storage layout and can break existing deployments, persisted data, or upgradeable proxies. Review generated code carefully; use it for new deployments unless compatibility has been independently established.
+            </span>
+          </div>
         </div>
 
         {/* Layout Report Column */}
         <div>
+          <div
+            className={`info-callout storage-verification-status ${verification.status}`}
+            role="status"
+            aria-live="polite"
+          >
+            <b>
+              {verification.status === 'verified' && 'Compiler verified'}
+              {verification.status === 'pending' && 'Verifying with Solidity compiler…'}
+              {verification.status === 'failed' && 'Verification failed'}
+              {verification.status === 'estimated' && 'Estimated only'}
+            </b>
+            <span>
+              {verification.status === 'verified'
+                ? `solc ${verification.result.compilerVersion} confirmed ${verification.result.original.storageSlots} original slots and ${verification.result.optimized.storageSlots} optimized slots. Field names, types, slots, and byte offsets match the submitted declarations.`
+                : verification.status === 'failed'
+                  ? verification.message
+                  : verification.status === 'pending'
+                    ? 'The original and generated declarations are being compiled and compared.'
+                    : 'Submit a supported struct to compile both declarations and compare their storage layouts. No compiler result is being claimed yet.'}
+            </span>
+            {verification.status === 'verified' && (
+              <div className="storage-compiler-positions">
+                <span>
+                  Original: {verification.result.original.members.map(({ name, slot, offset }) => `${name} → ${slot}:${offset}`).join(' · ')}
+                </span>
+                <span>
+                  Optimized: {verification.result.optimized.members.map(({ name, slot, offset }) => `${name} → ${slot}:${offset}`).join(' · ')}
+                </span>
+              </div>
+            )}
+          </div>
           {analysis && (
             <div>
-              <div className="grid-three-col" style={{ marginBottom: '16px' }}>
-                <div className="metric-summary-chip">
-                  <span className="metric-chip-label">Storage Slots</span>
-                  <strong className="metric-chip-val purple">{analysis.storageSlots} words</strong>
-                </div>
-                <div className="metric-summary-chip">
-                  <span className="metric-chip-label">Bytes Used</span>
-                  <strong className="metric-chip-val">{analysis.bytesUsed} / {analysis.capacity}</strong>
-                </div>
-                <div className="metric-summary-chip">
-                  <span className="metric-chip-label">Unused Padding</span>
-                  <strong className="metric-chip-val green">{analysis.unusedBytes} bytes</strong>
-                </div>
+              <div className="info-callout" style={{ marginBottom: '14px' }}>
+                <b>{analysis.name}</b>
+                <span>
+                  {analysis.estimatedSlotsSaved > 0
+                    ? `The size-first suggestion uses an estimated ${analysis.estimatedSlotsSaved} fewer storage ${analysis.estimatedSlotsSaved === 1 ? 'slot' : 'slots'} for packable fields.`
+                    : 'The size-first heuristic found no estimated slot reduction for this declaration.'}
+                </span>
               </div>
 
-              <div className="slot-block-list">
-                {analysis.slots.map((slot) => (
-                  <div className="storage-slot-card" key={slot.slot}>
-                    <div className="slot-header-bar">
-                      <strong style={{ color: 'var(--text-pure)' }}>Storage Slot {slot.slot}</strong>
-                      <span style={{ color: 'var(--text-dim)' }}>
-                        {32 - slot.used} bytes unused ({slot.used}/32 B filled)
-                      </span>
-                    </div>
-                    <div className="slot-visual-bar-32">
-                      {slot.fields.map((field) => (
-                        <div
-                          className="slot-field-segment"
-                          style={{ flexBasis: `${(field.bytes / 32) * 100}%` }}
-                          key={field.name}
-                          title={`${field.name} (${field.type}) - ${field.bytes} bytes at offset ${field.offset}`}
-                        >
-                          <span className="segment-name">{field.name}</span>
-                          <span className="segment-bytes">{field.bytes}B</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="slot-fields-metadata">
-                      {slot.fields.map((field) => (
-                        <span key={field.name}>
-                          <b>{field.name}</b>: {field.type} (offset {field.offset})
-                        </span>
-                      ))}
-                    </div>
+              <div className="storage-field-list">
+                <h3 className="storage-layout-heading">Field sizes</h3>
+                {analysis.fields.map((field) => (
+                  <div className="storage-field-row" key={field.name}>
+                    <code>{field.name}</code>
+                    <span>{field.type}</span>
+                    <strong>
+                      {field.kind === 'fixed-array'
+                        ? `${field.bytes} B total · ${field.length} elements`
+                        : field.kind === 'scalar'
+                          ? `${field.bytes} B`
+                          : '32 B storage head'}
+                    </strong>
                   </div>
                 ))}
               </div>
 
-              <div className="info-callout" style={{ marginTop: '16px' }}>
-                <b>Packaging Recommendation:</b>
-                <span>
-                  {analysis.slots.some((s) => s.fields.length > 1)
-                    ? 'Adjacent small fields are successfully packed into shared 32-byte EVM storage slots.'
-                    : 'Consider grouping adjacent smaller variables (e.g. uint128, uint64, bool) to consolidate storage words.'}
-                </span>
+              <div className="storage-layout-comparison">
+                {renderLayout(
+                  analysis.declaredLayout,
+                  'Declared order',
+                  verification.status === 'verified'
+                    ? 'Compiler-verified layout of the submitted declaration.'
+                    : 'Estimated layout using the field order you entered.',
+                  verification.status === 'verified' ? verification.result.original.storageSlots : null
+                )}
+                {renderLayout(
+                  analysis.suggestedLayout,
+                  'Suggested size-first order',
+                  verification.status === 'verified'
+                    ? 'Compiler-verified generated declaration. Fields are reordered only when the estimate finds a strict slot reduction.'
+                    : 'Heuristic proposal reorders elementary fields within runs. Array, mapping, string, and bytes fields remain boundaries.',
+                  verification.status === 'verified' ? verification.result.optimized.storageSlots : null
+                )}
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-                <button
-                  className="btn-secondary"
-                  onClick={() => copyToClipboard(source, 'Struct copied!')}
-                >
-                  {copyStatus || 'Copy Solidity Struct'}
-                </button>
+              <div className="optimized-code-panel">
+                <div className="optimized-code-heading">
+                  <div>
+                    <h3 className="storage-layout-heading">Generated optimized declaration</h3>
+                    <p className="storage-layout-description">
+                      {analysis.optimizationApplied
+                        ? 'Same struct and fields, reordered based on the calculated slot layout.'
+                        : 'No estimated slot reduction was identified; the original field order is retained.'}
+                    </p>
+                  </div>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => void copyOptimizedStruct()}
+                    disabled={copyStatus?.status === 'copying'}
+                  >
+                    {copyStatus?.status === 'copying' ? 'Copying…' : 'Copy Optimized Struct'}
+                  </button>
+                  {copyStatus && (
+                    <span className={`storage-copy-feedback ${copyStatus.status}`} role="status">
+                      {copyStatus.message}
+                    </span>
+                  )}
+                </div>
+                <pre className="optimized-solidity-code"><code>{generateOptimizedStruct(analysis)}</code></pre>
               </div>
             </div>
           )}
@@ -1353,52 +1468,227 @@ function KuruWorkspaceSection({ wallet }) {
   const [quote, setQuote] = useState(null);
   const [params, setParams] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [marketError, setMarketError] = useState('');
+  const [walletReadState, setWalletReadState] = useState({
+    monBalance: null,
+    usdcBalance: null,
+    allowance: null,
+    monMargin: null,
+    usdcMargin: null,
+    status: 'Checking wallet state…',
+    error: '',
+  });
 
-  const fetchKuru = async () => {
-    setLoading(true);
+  const formatTokenRead = (value, decimals = 18) => {
+    if (value === null || value === undefined || value === 'Unavailable') return 'Unavailable';
     try {
-      const [[bestBid, bestAsk], p] = await Promise.all([
-        publicClient.readContract({ address: KURU_MARKET_ADDRESS, abi: KURU_ABI, functionName: 'bestBidAsk' }),
-        publicClient.readContract({ address: KURU_MARKET_ADDRESS, abi: KURU_ABI, functionName: 'getMarketParams' }),
-      ]);
-      setQuote({
-        bestBid: bestBid === KURU_EMPTY_PRICE ? 'None' : formatUnits(bestBid, 8),
-        bestAsk: bestAsk === KURU_EMPTY_PRICE ? 'None' : formatUnits(bestAsk, 8),
-      });
-      setParams(p);
-    } catch (err) {
-      console.warn('Kuru read error', err);
-    } finally {
-      setLoading(false);
+      return Number(formatUnits(value, decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 });
+    } catch {
+      return value.toString();
     }
   };
 
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      setLoading(true);
+  const readWalletState = async () => {
+    if (!wallet?.account || wallet.chainId !== MONAD_CHAIN_ID) {
+      setWalletReadState({
+        monBalance: 'Unavailable',
+        usdcBalance: 'Unavailable',
+        allowance: 'Unavailable',
+        monMargin: 'Unavailable',
+        usdcMargin: 'Unavailable',
+        status: wallet?.account ? 'Wrong network' : 'Wallet disconnected',
+        error: wallet?.account ? 'MetaMask must be on Monad Testnet (chain ID 10143).' : 'Connect a wallet to inspect Kuru wallet state.',
+      });
+      return;
+    }
+
+    setWalletReadState((prev) => ({ ...prev, status: 'Querying wallet and margin state…', error: '' }));
+
+    const requests = [
+      {
+        key: 'monBalance',
+        label: 'Wallet MON',
+        call: () => publicClient.getBalance({ address: wallet.account }),
+        format: (v) => formatTokenRead(v, 18),
+      },
+      {
+        key: 'usdcBalance',
+        label: 'Wallet USDC',
+        call: () => publicClient.readContract({
+          address: KURU_USDC_ADDRESS,
+          abi: KURU_ERC20_ABI,
+          functionName: 'balanceOf',
+          args: [wallet.account],
+        }),
+        format: (v) => formatTokenRead(v, 6),
+      },
+      {
+        key: 'allowance',
+        label: 'USDC allowance',
+        call: () => publicClient.readContract({
+          address: KURU_USDC_ADDRESS,
+          abi: KURU_ERC20_ABI,
+          functionName: 'allowance',
+          args: [wallet.account, KURU_MARGIN_ACCOUNT_ADDRESS],
+        }),
+        format: (v) => (v === 0n ? 'Required' : `${formatTokenRead(v, 6)} USDC`),
+      },
+      {
+        key: 'monMargin',
+        label: 'MON margin',
+        call: () => publicClient.readContract({
+          address: KURU_MARGIN_ACCOUNT_ADDRESS,
+          abi: KURU_MARGIN_ABI,
+          functionName: 'getBalance',
+          args: [wallet.account, KURU_NATIVE_MON_ADDRESS],
+        }),
+        format: (v) => formatTokenRead(v, 18),
+      },
+      {
+        key: 'usdcMargin',
+        label: 'USDC margin',
+        call: () => publicClient.readContract({
+          address: KURU_MARGIN_ACCOUNT_ADDRESS,
+          abi: KURU_MARGIN_ABI,
+          functionName: 'getBalance',
+          args: [wallet.account, KURU_USDC_ADDRESS],
+        }),
+        format: (v) => formatTokenRead(v, 6),
+      },
+    ];
+
+    const nextState = {
+      monBalance: 'Unavailable',
+      usdcBalance: 'Unavailable',
+      allowance: 'Unavailable',
+      monMargin: 'Unavailable',
+      usdcMargin: 'Unavailable',
+      status: 'Ready for Kuru approval/deposit checks',
+      error: '',
+    };
+
+    const failures = [];
+
+    for (const request of requests) {
       try {
-        const [[bestBid, bestAsk], p] = await Promise.all([
-          publicClient.readContract({ address: KURU_MARKET_ADDRESS, abi: KURU_ABI, functionName: 'bestBidAsk' }),
-          publicClient.readContract({ address: KURU_MARKET_ADDRESS, abi: KURU_ABI, functionName: 'getMarketParams' }),
-        ]);
-        if (isMounted) {
+        const value = await request.call();
+        nextState[request.key] = request.format(value);
+      } catch (error) {
+        failures.push(`${request.label}: ${error?.shortMessage || error?.message || 'RPC request failed'}`);
+      }
+    }
+
+    if (failures.length) {
+      nextState.status = 'Kuru wallet reads unavailable';
+      nextState.error = failures.join(' | ');
+    }
+
+    setWalletReadState(nextState);
+  };
+
+  const fetchKuru = async () => {
+    setLoading(true);
+    setMarketError('');
+
+    const requests = [
+      { name: 'bestBidAsk', call: () => publicClient.readContract({ address: KURU_MARKET_ADDRESS, abi: KURU_ABI, functionName: 'bestBidAsk' }) },
+      { name: 'getMarketParams', call: () => publicClient.readContract({ address: KURU_MARKET_ADDRESS, abi: KURU_ABI, functionName: 'getMarketParams' }) },
+    ];
+
+    const failures = [];
+
+    for (const request of requests) {
+      try {
+        const value = await request.call();
+        if (request.name === 'bestBidAsk') {
+          const [bestBid, bestAsk] = value;
           setQuote({
             bestBid: bestBid === KURU_EMPTY_PRICE ? 'None' : formatUnits(bestBid, 8),
             bestAsk: bestAsk === KURU_EMPTY_PRICE ? 'None' : formatUnits(bestAsk, 8),
           });
-          setParams(p);
         }
-      } catch (err) {
-        console.warn('Kuru read error', err);
-      } finally {
-        if (isMounted) setLoading(false);
+        if (request.name === 'getMarketParams') {
+          setParams(value);
+        }
+      } catch (error) {
+        failures.push(`${request.name}: ${error?.shortMessage || error?.message || 'RPC request failed'}`);
       }
-    })();
+    }
+
+    if (failures.length) {
+      setMarketError(failures.join(' | '));
+    }
+
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const load = async () => {
+      setLoading(true);
+      setMarketError('');
+
+      const failures = [];
+
+      try {
+        const bestBidAsk = await publicClient.readContract({
+          address: KURU_MARKET_ADDRESS,
+          abi: KURU_ABI,
+          functionName: 'bestBidAsk',
+        });
+        if (isMounted) {
+          const [bestBid, bestAsk] = bestBidAsk;
+          setQuote({
+            bestBid: bestBid === KURU_EMPTY_PRICE ? 'None' : formatUnits(bestBid, 8),
+            bestAsk: bestAsk === KURU_EMPTY_PRICE ? 'None' : formatUnits(bestAsk, 8),
+          });
+        }
+      } catch (error) {
+        failures.push(`${error?.shortMessage || error?.message || 'bestBidAsk RPC request failed'}`);
+      }
+
+      try {
+        const paramsResult = await publicClient.readContract({
+          address: KURU_MARKET_ADDRESS,
+          abi: KURU_ABI,
+          functionName: 'getMarketParams',
+        });
+        if (isMounted) {
+          setParams(paramsResult);
+        }
+      } catch (error) {
+        failures.push(`${error?.shortMessage || error?.message || 'getMarketParams RPC request failed'}`);
+      }
+
+      if (isMounted && failures.length) {
+        setMarketError(failures.join(' | '));
+      }
+
+      if (isMounted) {
+        setLoading(false);
+      }
+    };
+
+    load();
+    readWalletState();
+
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [wallet?.account, wallet?.chainId]);
+
+  useEffect(() => {
+    readWalletState();
+  }, [wallet?.account, wallet?.chainId]);
+
+  const readiness = !wallet?.account
+    ? 'Not ready — wallet disconnected'
+    : wallet.chainId !== MONAD_CHAIN_ID
+      ? 'Not ready — wrong network'
+      : marketError || walletReadState.error
+        ? 'Not ready — Kuru RPC read failure'
+        : 'Ready for approval/deposit checks';
 
   return (
     <div className="glass-panel" id="section-kuru">
@@ -1423,7 +1713,7 @@ function KuruWorkspaceSection({ wallet }) {
         </div>
         <div className="metric-summary-chip">
           <span className="metric-chip-label">Market Tick Size</span>
-          <strong className="metric-chip-val">{params ? `${params[6]} ticks` : '100 ticks'}</strong>
+          <strong className="metric-chip-val">{params ? `${params[6]} ticks` : 'Unavailable'}</strong>
         </div>
         <div className="metric-summary-chip">
           <span className="metric-chip-label">Settlement Contract</span>
@@ -1432,8 +1722,65 @@ function KuruWorkspaceSection({ wallet }) {
       </div>
 
       <div style={{ marginBottom: '14px', fontSize: '11px', color: 'var(--text-dim)' }}>
-        Connected Wallet: {wallet?.account ? shortAddress(wallet.account) : 'Public read mode'} · Chain 10143
+        Connected Wallet: {wallet?.account ? shortAddress(wallet.account) : 'Public read mode'} · Chain {wallet?.chainId ?? '—'}
       </div>
+
+      {marketError && (
+        <div className="info-callout warning" style={{ marginBottom: '16px' }}>
+          <b>Kuru market read failed:</b>
+          <span> {marketError}</span>
+        </div>
+      )}
+
+      <div className="grid-two-col" style={{ marginBottom: '14px' }}>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">Wallet</span>
+          <strong className="metric-chip-val">{wallet?.account ? 'Connected' : 'Disconnected'}</strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">Monad Testnet</span>
+          <strong className="metric-chip-val">{wallet?.chainId === MONAD_CHAIN_ID ? '✓' : 'Waiting…'}</strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">Kuru Market</span>
+          <strong className="metric-chip-val">{KURU_MARKET_ADDRESS}</strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">MarginAccount</span>
+          <strong className="metric-chip-val">{KURU_MARGIN_ACCOUNT_ADDRESS}</strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">Wallet MON balance</span>
+          <strong className="metric-chip-val">{walletReadState.monBalance ?? 'Checking…'}</strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">Wallet USDC balance</span>
+          <strong className="metric-chip-val">{walletReadState.usdcBalance ?? 'Checking…'}</strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">MON margin balance</span>
+          <strong className="metric-chip-val">{walletReadState.monMargin ?? 'Checking…'}</strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">USDC margin balance</span>
+          <strong className="metric-chip-val">{walletReadState.usdcMargin ?? 'Checking…'}</strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">USDC allowance</span>
+          <strong className="metric-chip-val">{walletReadState.allowance ?? 'Checking…'}</strong>
+        </div>
+        <div className="metric-summary-chip">
+          <span className="metric-chip-label">Trading readiness</span>
+          <strong className="metric-chip-val">{readiness}</strong>
+        </div>
+      </div>
+
+      {walletReadState.error && (
+        <div className="info-callout warning" style={{ marginBottom: '16px' }}>
+          <b>Wallet read detail:</b>
+          <span> {walletReadState.error}</span>
+        </div>
+      )}
 
       <div className="info-callout">
         <b>Architecture Distinction:</b>

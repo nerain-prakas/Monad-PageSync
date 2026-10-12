@@ -1,0 +1,238 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-12T07:36:17.807Z",
+  "compiler": {
+    "version": "0.8.37+commit.f401782d.Emscripten.clang",
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "evmVersion": "shanghai",
+    "viaIR": false,
+    "metadata": {
+      "bytecodeHash": "none"
+    }
+  },
+  "execution": {
+    "engine": "@ethereumjs/vm",
+    "engineVersion": "10.1.3",
+    "hardfork": "shanghai",
+    "iterations": 5,
+    "measurement": "Signed local EVM transactions; receipt-equivalent total gas spent, including intrinsic and calldata gas.",
+    "transactionGasLimit": 15000000,
+    "transactionGasPriceWei": 1000000000,
+    "writeValues": [
+      "123456789",
+      "42",
+      "987654321",
+      "84"
+    ],
+    "readOperations": [
+      "readAmount()",
+      "readAll()"
+    ]
+  },
+  "layouts": {
+    "declared": {
+      "storageSlots": 4,
+      "members": [
+        {
+          "name": "amount",
+          "type": "uint128",
+          "slot": 0,
+          "offsetBytes": 0
+        },
+        {
+          "name": "orderId",
+          "type": "uint256",
+          "slot": 1,
+          "offsetBytes": 0
+        },
+        {
+          "name": "price",
+          "type": "uint128",
+          "slot": 2,
+          "offsetBytes": 0
+        },
+        {
+          "name": "traderId",
+          "type": "uint256",
+          "slot": 3,
+          "offsetBytes": 0
+        }
+      ]
+    },
+    "optimized": {
+      "storageSlots": 3,
+      "members": [
+        {
+          "name": "orderId",
+          "type": "uint256",
+          "slot": 0,
+          "offsetBytes": 0
+        },
+        {
+          "name": "traderId",
+          "type": "uint256",
+          "slot": 1,
+          "offsetBytes": 0
+        },
+        {
+          "name": "amount",
+          "type": "uint128",
+          "slot": 2,
+          "offsetBytes": 0
+        },
+        {
+          "name": "price",
+          "type": "uint128",
+          "slot": 2,
+          "offsetBytes": 16
+        }
+      ]
+    }
+  },
+  "results": {
+    "declared": {
+      "deployment": {
+        "samples": [
+          128155,
+          128155,
+          128155,
+          128155,
+          128155
+        ],
+        "minimum": 128155,
+        "median": 128155,
+        "mean": 128155,
+        "maximum": 128155
+      },
+      "writeAll": {
+        "samples": [
+          110647,
+          110647,
+          110647,
+          110647,
+          110647
+        ],
+        "minimum": 110647,
+        "median": 110647,
+        "mean": 110647,
+        "maximum": 110647
+      },
+      "readAmount": {
+        "samples": [
+          23330,
+          23330,
+          23330,
+          23330,
+          23330
+        ],
+        "minimum": 23330,
+        "median": 23330,
+        "mean": 23330,
+        "maximum": 23330
+      },
+      "readAll": {
+        "samples": [
+          29759,
+          29759,
+          29759,
+          29759,
+          29759
+        ],
+        "minimum": 29759,
+        "median": 29759,
+        "mean": 29759,
+        "maximum": 29759
+      }
+    },
+    "optimized": {
+      "deployment": {
+        "samples": [
+          122507,
+          122507,
+          122507,
+          122507,
+          122507
+        ],
+        "minimum": 122507,
+        "median": 122507,
+        "mean": 122507,
+        "maximum": 122507
+      },
+      "writeAll": {
+        "samples": [
+          88519,
+          88519,
+          88519,
+          88519,
+          88519
+        ],
+        "minimum": 88519,
+        "median": 88519,
+        "mean": 88519,
+        "maximum": 88519
+      },
+      "readAmount": {
+        "samples": [
+          23331,
+          23331,
+          23331,
+          23331,
+          23331
+        ],
+        "minimum": 23331,
+        "median": 23331,
+        "mean": 23331,
+        "maximum": 23331
+      },
+      "readAll": {
+        "samples": [
+          27664,
+          27664,
+          27664,
+          27664,
+          27664
+        ],
+        "minimum": 27664,
+        "median": 27664,
+        "mean": 27664,
+        "maximum": 27664
+      }
+    },
+    "comparison": {
+      "deployment": {
+        "declaredMedianGas": 128155,
+        "optimizedMedianGas": 122507,
+        "gasDifference": 5648,
+        "percentGasReduced": 4.4072
+      },
+      "writeAll": {
+        "declaredMedianGas": 110647,
+        "optimizedMedianGas": 88519,
+        "gasDifference": 22128,
+        "percentGasReduced": 19.9987
+      },
+      "readAmount": {
+        "declaredMedianGas": 23330,
+        "optimizedMedianGas": 23331,
+        "gasDifference": -1,
+        "percentGasReduced": -0.0043
+      },
+      "readAll": {
+        "declaredMedianGas": 29759,
+        "optimizedMedianGas": 27664,
+        "gasDifference": 2095,
+        "percentGasReduced": 7.0399
+      }
+    }
+  },
+  "limitations": [
+    "Measurements use EthereumJS VM at Shanghai rules; they are reproducible local EVM measurements, not Monad Testnet receipts.",
+    "Gas depends on compiler settings, EVM hardfork, transaction data, and initial storage state; results apply only to these harness operations and values.",
+    "Deployment measurement includes creation transaction intrinsic/calldata gas and contract initcode execution.",
+    "Read operations are sent as signed transactions so gas appears in receipts; their return values are also decoded and checked.",
+    "No gas-saving claim is made for operations where the measured median does not decrease."
+  ]
+}
