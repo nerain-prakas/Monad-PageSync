@@ -177,7 +177,10 @@ ENV/
 .agents/
 .tmp/
 .temp/
-
+# Local Node.js runtime caches
+.cache/
+**/.cache/
+pagesync-node/
 # ==========================================
 # Preserve useful project files
 # ==========================================
