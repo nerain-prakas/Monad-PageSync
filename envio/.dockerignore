@@ -1,0 +1,11 @@
+node_modules
+.env
+.env.*
+.envio
+logs
+test
+cd
+envio
+repair_envio.sh`
+*.sh
+*.log

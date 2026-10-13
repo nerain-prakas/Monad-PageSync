@@ -59,3 +59,44 @@ node --test test/eventMeta.test.js
 ## Environment
 
 `envio/.env` (git-ignored) may hold `ENVIO_API_TOKEN` for hosted RPC/HyperSync access. Never commit it.
+
+## Deploy to Render
+
+The indexer runs on Render as a **Background Worker** built from `envio/Dockerfile` (`envio start`, never `dev` or `-r`). It uses the same Render PostgreSQL database as the Hasura service, and Hasura serves the GraphQL API to the Express backend.
+
+| Piece | Render service |
+|---|---|
+| Indexer | Background Worker `monad-pagesync-envio` (Docker, root directory `envio`) |
+| GraphQL | Web service `monad-pagesync-hasura` |
+| Database | PostgreSQL `monad-pagesync-db` |
+| API | Web service `Monad-PageSync` (set `ENVIO_GRAPHQL_URL` to the Hasura `/v1/graphql` URL) |
+
+Worker environment (secrets are entered in Render, never committed):
+
+| Variable | Value |
+|---|---|
+| `ENVIO_PG_HOST` / `ENVIO_PG_PORT` / `ENVIO_PG_USER` / `ENVIO_PG_PASSWORD` / `ENVIO_PG_DATABASE` | from the database's **internal** connection info |
+| `ENVIO_PG_SSL_MODE` | `require` |
+| `ENVIO_HASURA` | `true` |
+| `HASURA_GRAPHQL_ENDPOINT` | `https://<hasura-service>.onrender.com/v1/metadata` |
+| `HASURA_GRAPHQL_ADMIN_SECRET` | same value as the Hasura service |
+
+`ENVIO_API_TOKEN` is not needed: this chain is indexed over RPC.
+
+### Existing data
+
+Envio keeps its checkpoints in the database. The Render database starts empty, so the worker indexes from the configured start block into it; your local database and checkpoints are not touched. To carry local data over instead, restore a `pg_dump --schema=public` of the local database into Render **before** the worker's first start.
+
+### Verify
+
+```bash
+curl -s https://<hasura>.onrender.com/v1/graphql   -H 'content-type: application/json'   -d '{"query":"{ OrderPlaced(limit: 2, order_by: {blockNumber: desc}) { id transactionHash blockNumber } }"}'
+
+curl -s https://<backend>/stats
+```
+
+`/stats` should report `envioAvailable: true` with non-zero counts, and every `transactionHash` should be a full `0x…` hash.
+
+### Safety
+
+Never run `envio start -r` or `envio dev -r` against this database, and never delete the database or its volume. Keep the Hasura console disabled in production.
