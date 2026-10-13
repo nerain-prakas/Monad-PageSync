@@ -1,57 +1,48 @@
 # PageSync
 
-PageSync is an on-chain market intelligence dashboard for the Monad Testnet MON/USDC market. Kuru remains the trading venue; PageSync makes market activity, wallet activity, and measured storage/gas evidence easier to understand.
+**Pack the struct. Cut the gas.**
+
+PageSync is a Solidity storage-optimisation tool and research case study on **Monad Testnet** (chain ID `10143`). It shows how a struct is laid out in 32-byte storage slots, suggests safe packing, and presents measured receipt-gas evidence for a packed order-book implementation.
+
+> PageSync is a developer and research tool. It is testnet-only, does not handle real value, does not guarantee savings, and does not modify deployed contracts.
+
+## Contents
+
+- [What it does](#what-it-does)
+- [Research result](#research-result)
+- [Architecture](#architecture)
+- [Repository layout](#repository-layout)
+- [Getting started](#getting-started)
+- [Configuration](#configuration)
+- [Deployed contracts](#deployed-contracts)
+- [Testing](#testing)
+- [Safety](#safety)
+- [Limitations and roadmap](#limitations-and-roadmap)
 
 ## What it does
 
-Solidity structs are laid out in 32-byte storage slots. Small type choices and field ordering can create packing opportunities, but changing a deployed layout can also break storage compatibility. PageSync makes those trade-offs visible before deployment.
+The web app has five areas. A cinematic landing page introduces them; the in-app **Docs** page explains each in detail.
 
-The product has these surfaces:
+| Area | Purpose |
+|---|---|
+| **Lab** | Paste one Solidity struct and see each field's slot, byte offset and unused space. Get a separate, copyable reordered declaration (the original is never changed silently). A second tab inspects the known `NaiveOrderBook` and `PageSyncOrderBook` layouts. |
+| **Evidence** | The saved receipt benchmark, a byte-accurate layout comparison with measured gas per operation, and a live reproduction that sends an order to the PageSync contract. |
+| **Market** | The Kuru MON/USDC order book on Monad Testnet: live best bid/ask and market parameters, wallet and margin balances, funding and post-only limit orders. |
+| **Activity** | Orders, trades and cancellations indexed by Envio, with filters, auto-refresh and explorer links. |
+| **Docs** | How to use each tool, wallet and network setup, method and limits, troubleshooting, glossary. |
 
-- **Overview** — public market context, best bid/ask, activity preview, wallet entry point, and measured storage evidence.
-- **Markets** — MON/USDC market state and simple order-book explanations.
-- **Activity** — separate Kuru venue events and PageSync reference-contract events indexed by Envio.
-- **My Orders** — optional wallet-scoped activity; connecting is not required for public market intelligence.
-- **Watch** — lightweight market monitoring view.
-- **Gas & Storage** — measured receipt benchmark and packed-storage comparison.
-- **Developer Tools** — the technical tools below.
+A wallet is only needed for the live reproduction and for placing Market orders. Everything else is read-only.
 
-- **Struct Analyzer** — paste a supported struct and inspect slots, byte offsets, packing groups, and unused space.
-- **Storage Inspector** — inspect the verified layouts of the deployed NaiveOrderBook and PageSyncOrderBook contracts.
-- **Gas Benchmark** — compare receipt-based gas measurements from the controlled Monad Testnet workload.
-- **Research** — explore the PageSync packed-storage case study and its limitations.
-- **Kuru Market** — optional funding and trading workspace for the live Monad Testnet MON-USDC market.
+## Research result
 
-## Architecture
+The experiment compares `NaiveOrderBook` and `PageSyncOrderBook` on Monad Testnet using separate transactions and the **receipt `gasUsed`** — not `gasleft()`, estimates or gas limits.
 
-```text
-React/Vite frontend
-  ├── client-side struct analysis
-  ├── known storage inspection
-  ├── saved receipt benchmark results
-  ├── Kuru market status, funding, limit orders, and event tracking
-  └── research visualization
-          │
-          ├── Solidity contracts / Foundry scripts
-          └── Node/Express API → Envio analytics (optional, when the indexer is running)
-```
+- `NaiveOrderBook`: an `Order` struct occupying four storage slots.
+- `PageSyncOrderBook`: a packed representation in two storage words (`data1` trader/price, `data2` quantity/flags).
 
-Envio indexes order-book events for analytics. It does not measure individual SLOAD/SSTORE costs or replace transaction receipts as the benchmark source.
+Three repeated workloads completed; **30 of 30** receipt statuses were `1`.
 
-## Research: NaiveOrderBook vs PageSyncOrderBook
-
-The research compares the same order-book operations against:
-
-- `NaiveOrderBook`: an `Order` struct occupying four compiled storage slots. `trader`, `price`, and `quantity` occupy words; `side` and `status` share the fourth word.
-- `PageSyncOrderBook`: a packed representation occupying two storage words. `data1` contains trader/price information and `data2` contains quantity/flags.
-
-Both implementations still use mapping-based storage. PageSync does not contain an explicit page allocator, and the experiment does not prove a separate Monad storage-page warming mechanism.
-
-### Verified Monad Testnet result
-
-The repeated benchmark used three fresh workloads, 30 transactions total, and actual receipt `gasUsed` on chain ID `10143`. All 30 receipts returned status `1`.
-
-> Across three repeated Monad Testnet workloads, PageSyncOrderBook showed approximately **20.42% lower median total receipt gas** than NaiveOrderBook.
+> PageSyncOrderBook showed approximately **20.42% lower median total receipt gas** than NaiveOrderBook.
 
 | Operation | Naive median | PageSync median | Difference |
 |---|---:|---:|---:|
@@ -61,83 +52,114 @@ The repeated benchmark used three fresh workloads, 30 transactions total, and ac
 | Cancel | 51,769 | 34,806 | 32.77% lower |
 | Execute | 35,273 | 35,294 | 0.06% higher |
 
-The result is workload-specific. It supports a measurable benefit from the packed representation, not a universal gas guarantee.
+**Limits.** Both contracts remain mapping-based and PageSync has no explicit page allocator, so the result is workload-specific evidence. It does not prove a Monad storage-page locality or warming mechanism, and it is not a universal gas guarantee. Envio is an indexer, not a gas profiler.
 
-## Tech stack
+## Architecture
 
-- Solidity `0.8.24` and Foundry
-- React 19, Vite, and Three.js
-- Node.js/Express backend
-- Envio event indexing
-- Monad Testnet
+```text
+React + Vite frontend
+  ├─ client-side struct analysis and layout inspection
+  ├─ saved receipt benchmark + byte-level layout view
+  ├─ live reads/writes through viem (Monad Testnet RPC)
+  └─ Kuru market workspace
+          │
+          ├─ Solidity contracts + Foundry scripts and tests
+          └─ Express API ──► Envio GraphQL ──► Envio indexer (PostgreSQL)
+                  (optional: only the Activity page and indexed stats need it)
+```
 
-## Local development
+## Repository layout
 
-```powershell
+| Path | Contents |
+|---|---|
+| `contracts/` | `NaiveOrderBook.sol`, `PageSyncOrderBook.sol`, interfaces |
+| `script/` | Foundry deploy/benchmark scripts and PowerShell receipt-benchmark runners |
+| `test/` | Foundry tests (order book, storage experiment, benchmark) |
+| `benchmark/results/` | Saved receipt benchmark artifacts (JSON and Markdown) |
+| `deployments/` | `addresses.json` for the deployed contracts |
+| `frontend/` | React + Vite web app — see [`frontend/README.md`](frontend/README.md) |
+| `backend/` | Express API — see [`backend/README.md`](backend/README.md) |
+| `envio/` | Envio HyperIndex indexer — see [`envio/README.md`](envio/README.md) |
+
+## Getting started
+
+Requirements: Node.js 22+, [Foundry](https://book.getfoundry.sh/) for the contracts, and WSL 2 on Windows for the Envio indexer.
+
+### 1. Frontend
+
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-The frontend can be built with:
+The Lab, Evidence and Docs pages work with the frontend alone.
 
-```powershell
-cd frontend
-npm run build
-npm run lint
-```
+### 2. Backend (optional)
 
-Contract validation:
-
-```powershell
-forge build
-forge test
-```
-
-The backend is optional for the client-side tools:
-
-```powershell
+```bash
 cd backend
 npm install
 npm start
 ```
 
-The Activity page calls the backend at `http://localhost:3001`. Start Envio separately
-from the `envio` directory after installing the Envio CLI and completing its project
-dependencies. If the backend or indexer is unavailable, the UI reports that state rather
-than presenting empty activity as verified history.
+Serves on `http://localhost:3001`. The frontend calls it for Activity and indexed stats.
 
-## Monad Testnet
+### 3. Envio indexer (optional)
 
-The deployed contracts are:
+Envio does not run natively on Windows; use WSL 2. See [`envio/README.md`](envio/README.md) for the exact commands, including how to resume safely without losing indexed data.
 
-- NaiveOrderBook: `0x9eDDb8B7612954014Af0fFA58dc9d93dB2C75d68`
-- PageSyncOrderBook: `0x5De52bC09A2A688f6c4615099465e9049CC83bC1`
+### 4. Contracts
 
-Monad Testnet chain ID is `10143`. Keep `MONAD_RPC_URL` and `PRIVATE_KEY` in a local ignored `.env` file only. Never place wallet credentials in README files, source code, benchmark artifacts, or commits.
+```bash
+forge build
+forge test
+```
 
-### Kuru testnet workspace
+## Configuration
 
-The Kuru workspace connects to the documented MON-USDC market:
+Create a local, git-ignored `.env` at the repository root (see `.env.example`):
 
-- Market: `0xa241896A7Dbe8a550D2E5fF7A914bB1989ceD2D9`
-- Quote asset: USDC
-- Base asset: MON
-- Settlement model: Kuru margin account
-- Funding: ERC-20 approval plus verified USDC/native MON margin deposits
-- Orders: validated post-only limit orders and batch cancellation
-- Tracking: recent `OrderCreated`, `Trade`, and `OrdersCanceled` events from the market
+| Variable | Used by | Purpose |
+|---|---|---|
+| `MONAD_RPC_URL` | Foundry | Monad Testnet RPC endpoint |
+| `PRIVATE_KEY` | Foundry scripts | Deployer/benchmark key — testnet wallet only |
+| `ENVIO_GRAPHQL_URL` | Backend | Envio GraphQL endpoint (default `http://localhost:8080/v1/graphql`) |
+| `PORT` | Backend | API port (default `3001`) |
 
-The UI shows wallet, network, allowance, wallet balances, and margin balances explicitly.
-Transactions are sent only to the Kuru market or MarginAccount and are shown as successful
-only after a Monad Testnet receipt confirms them. Use a testnet wallet and review each
-wallet prompt carefully. The PageSync reference market continues to be used only for
-storage-optimization experiments.
+The frontend reads `VITE_API_URL` if you need to point it at a backend other than `http://localhost:3001`.
+
+## Deployed contracts
+
+Monad Testnet, chain ID `10143`, explorer `https://testnet.monadexplorer.com`.
+
+| Contract | Address |
+|---|---|
+| NaiveOrderBook | `0x9eDDb8B7612954014Af0fFA58dc9d93dB2C75d68` |
+| PageSyncOrderBook | `0x5De52bC09A2A688f6c4615099465e9049CC83bC1` |
+| Kuru MON/USDC market | `0xa241896A7Dbe8a550D2E5fF7A914bB1989ceD2D9` |
+
+The Kuru market is an external venue. PageSync reads it and sends transactions only to the Kuru market or its MarginAccount, and shows a transaction as successful only after a receipt confirms it. The PageSync reference market is used only for storage experiments.
+
+## Testing
+
+```bash
+forge test                      # contracts
+cd frontend && npm test         # struct-layout engine tests
+cd frontend && npm run lint     # oxlint
+cd frontend && npm run build    # production build
+```
+
+## Safety
+
+- Keep `MONAD_RPC_URL`, `PRIVATE_KEY` and any API tokens in the ignored `.env` only. Never put credentials in source, README files, benchmark artifacts or commits.
+- Use a testnet wallet and review every wallet prompt.
+- Reordering struct fields changes storage layout. Do not apply a reordered struct to an existing deployment, persisted data or an upgradeable proxy.
 
 ## Limitations and roadmap
 
-PageSync is a developer benchmark/tool, not a production exchange. It does not handle real money, guarantee savings, or automatically rewrite deployed storage. Generic storage inspection requires a contract ABI and compiler storage layout; an address alone is not enough.
+Not goals: a production exchange, real-value trading, universal Solidity compilation, automatic modification of deployed storage, treating Envio as a gas profiler.
 
-Future work includes broader Solidity type support, more networks, generic ABI/layout inspection,
-saved analyses, optional wallet-authorized live benchmarks, deeper Kuru book data, and richer
-Envio-powered fill/cancellation analytics.
+Generic storage inspection needs an ABI and compiler storage layout; an address alone is not enough.
+
+Future work: broader Solidity type support, more networks, generic ABI/layout inspection, saved analyses, deeper Kuru book data, and richer Envio fill/cancellation analytics.
