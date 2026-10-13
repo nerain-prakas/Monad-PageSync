@@ -6,9 +6,17 @@
  * so the dashboard can distinguish sources.
  */
 
+const { getEventMeta } = require("../shared/eventMeta.js");
+
+// Request transaction.hash per registration (not via config.yaml field_selection):
+// config-level field selection is persisted and makes an existing indexer
+// incompatible on resume, while handler-level `fields` is not.
+const TX_HASH_OPTIONS = { fields: { transaction: ["hash"], block: ["number", "timestamp"] } };
+
 const handleOrderPlaced = async ({ event, context }) => {
+  const meta = getEventMeta(event);
   await context.OrderPlaced.set({
-    id             : `${event.transaction.hash}-${event.logIndex}`,
+    id             : meta.id,
     orderId        : event.params.orderId.toString(),
     trader         : event.params.trader.toLowerCase(),
     price          : event.params.price.toString(),
@@ -17,57 +25,60 @@ const handleOrderPlaced = async ({ event, context }) => {
     contractAddress: event.srcAddress.toLowerCase(),
     blockNumber    : event.block.number,
     blockTimestamp : event.block.timestamp,
-    transactionHash: event.transaction.hash,
+    transactionHash: meta.transactionHash,
   });
 };
 
 const handleOrderUpdated = async ({ event, context }) => {
+  const meta = getEventMeta(event);
   await context.OrderUpdated.set({
-    id             : `${event.transaction.hash}-${event.logIndex}`,
+    id             : meta.id,
     orderId        : event.params.orderId.toString(),
     price          : event.params.price.toString(),
     quantity       : event.params.quantity.toString(),
     contractAddress: event.srcAddress.toLowerCase(),
     blockNumber    : event.block.number,
     blockTimestamp : event.block.timestamp,
-    transactionHash: event.transaction.hash,
+    transactionHash: meta.transactionHash,
   });
 };
 
 const handleOrderCancelled = async ({ event, context }) => {
+  const meta = getEventMeta(event);
   await context.OrderCancelled.set({
-    id             : `${event.transaction.hash}-${event.logIndex}`,
+    id             : meta.id,
     orderId        : event.params.orderId.toString(),
     contractAddress: event.srcAddress.toLowerCase(),
     blockNumber    : event.block.number,
     blockTimestamp : event.block.timestamp,
-    transactionHash: event.transaction.hash,
+    transactionHash: meta.transactionHash,
   });
 };
 
 const handleTradeExecuted = async ({ event, context }) => {
+  const meta = getEventMeta(event);
   await context.TradeExecuted.set({
-    id             : `${event.transaction.hash}-${event.logIndex}`,
+    id             : meta.id,
     orderId        : event.params.orderId.toString(),
     price          : event.params.price.toString(),
     quantity       : event.params.quantity.toString(),
     contractAddress: event.srcAddress.toLowerCase(),
     blockNumber    : event.block.number,
     blockTimestamp : event.block.timestamp,
-    transactionHash: event.transaction.hash,
+    transactionHash: meta.transactionHash,
   });
 };
 
 const { setHandler } = require("../../node_modules/envio/src/HandlerRegister.res.mjs");
 
 // NaiveOrderBook registrations
-setHandler("NaiveOrderBook", "OrderPlaced", handleOrderPlaced);
-setHandler("NaiveOrderBook", "OrderUpdated", handleOrderUpdated);
-setHandler("NaiveOrderBook", "OrderCancelled", handleOrderCancelled);
-setHandler("NaiveOrderBook", "TradeExecuted", handleTradeExecuted);
+setHandler("NaiveOrderBook", "OrderPlaced", handleOrderPlaced, TX_HASH_OPTIONS);
+setHandler("NaiveOrderBook", "OrderUpdated", handleOrderUpdated, TX_HASH_OPTIONS);
+setHandler("NaiveOrderBook", "OrderCancelled", handleOrderCancelled, TX_HASH_OPTIONS);
+setHandler("NaiveOrderBook", "TradeExecuted", handleTradeExecuted, TX_HASH_OPTIONS);
 
 // PageSyncOrderBook registrations
-setHandler("PageSyncOrderBook", "OrderPlaced", handleOrderPlaced);
-setHandler("PageSyncOrderBook", "OrderUpdated", handleOrderUpdated);
-setHandler("PageSyncOrderBook", "OrderCancelled", handleOrderCancelled);
-setHandler("PageSyncOrderBook", "TradeExecuted", handleTradeExecuted);
+setHandler("PageSyncOrderBook", "OrderPlaced", handleOrderPlaced, TX_HASH_OPTIONS);
+setHandler("PageSyncOrderBook", "OrderUpdated", handleOrderUpdated, TX_HASH_OPTIONS);
+setHandler("PageSyncOrderBook", "OrderCancelled", handleOrderCancelled, TX_HASH_OPTIONS);
+setHandler("PageSyncOrderBook", "TradeExecuted", handleTradeExecuted, TX_HASH_OPTIONS);

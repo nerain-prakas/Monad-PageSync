@@ -17,21 +17,9 @@ chains:
         handler: ./src/handlers/OrderBookHandler.js
         events:
           - event: "OrderPlaced(uint256 indexed orderId, address indexed trader, uint256 price, uint256 quantity, uint8 side)"
-            field_selection:
-              transaction_fields:
-                - hash
           - event: "OrderUpdated(uint256 indexed orderId, uint256 price, uint256 quantity)"
-            field_selection:
-              transaction_fields:
-                - hash
           - event: "OrderCancelled(uint256 indexed orderId)"
-            field_selection:
-              transaction_fields:
-                - hash
           - event: "TradeExecuted(uint256 indexed orderId, uint256 price, uint256 quantity)"
-            field_selection:
-              transaction_fields:
-                - hash
 
       - name: PageSyncOrderBook
         address:
@@ -41,21 +29,9 @@ chains:
         handler: ./src/handlers/OrderBookHandler.js
         events:
           - event: "OrderPlaced(uint256 indexed orderId, address indexed trader, uint256 price, uint256 quantity, uint8 side)"
-            field_selection:
-              transaction_fields:
-                - hash
           - event: "OrderUpdated(uint256 indexed orderId, uint256 price, uint256 quantity)"
-            field_selection:
-              transaction_fields:
-                - hash
           - event: "OrderCancelled(uint256 indexed orderId)"
-            field_selection:
-              transaction_fields:
-                - hash
           - event: "TradeExecuted(uint256 indexed orderId, uint256 price, uint256 quantity)"
-            field_selection:
-              transaction_fields:
-                - hash
 
       - name: KuruMarket
         address:
@@ -65,14 +41,5 @@ chains:
         handler: ./src/handlers/KuruMarketHandler.js
         events:
           - event: "OrderCreated(uint40 orderId, address owner, uint96 size, uint32 price, bool isBuy)"
-            field_selection:
-              transaction_fields:
-                - hash
           - event: "Trade(uint40 orderId, address makerAddress, bool isBuy, uint256 price, uint96 updatedSize, address takerAddress, address txOrigin, uint96 filledSize)"
-            field_selection:
-              transaction_fields:
-                - hash
           - event: "OrdersCanceled(uint40[] orderId, address owner)"
-            field_selection:
-              transaction_fields:
-                - hash

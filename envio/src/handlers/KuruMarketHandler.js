@@ -3,9 +3,17 @@
  * the PageSync reference order-book events.
  */
 
+const { getEventMeta } = require("../shared/eventMeta.js");
+
+// Request transaction.hash per registration (not via config.yaml field_selection):
+// config-level field selection is persisted and makes an existing indexer
+// incompatible on resume, while handler-level `fields` is not.
+const TX_HASH_OPTIONS = { fields: { transaction: ["hash"], block: ["number", "timestamp"] } };
+
 const handleOrderCreated = async ({ event, context }) => {
+  const meta = getEventMeta(event);
   await context.KuruOrderCreated.set({
-    id: `${event.transaction.hash}-${event.logIndex}`,
+    id: meta.id,
     orderId: event.params.orderId.toString(),
     owner: event.params.owner.toLowerCase(),
     size: event.params.size.toString(),
@@ -14,13 +22,14 @@ const handleOrderCreated = async ({ event, context }) => {
     marketAddress: event.srcAddress.toLowerCase(),
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
-    transactionHash: event.transaction.hash,
+    transactionHash: meta.transactionHash,
   });
 };
 
 const handleTrade = async ({ event, context }) => {
+  const meta = getEventMeta(event);
   await context.KuruTrade.set({
-    id: `${event.transaction.hash}-${event.logIndex}`,
+    id: meta.id,
     orderId: event.params.orderId.toString(),
     makerAddress: event.params.makerAddress.toLowerCase(),
     takerAddress: event.params.takerAddress.toLowerCase(),
@@ -31,19 +40,20 @@ const handleTrade = async ({ event, context }) => {
     marketAddress: event.srcAddress.toLowerCase(),
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
-    transactionHash: event.transaction.hash,
+    transactionHash: meta.transactionHash,
   });
 };
 
 const handleOrdersCanceled = async ({ event, context }) => {
+  const meta = getEventMeta(event);
   await context.KuruOrdersCanceled.set({
-    id: `${event.transaction.hash}-${event.logIndex}`,
+    id: meta.id,
     orderIds: event.params.orderId.map((id) => id.toString()).join(','),
     owner: event.params.owner.toLowerCase(),
     marketAddress: event.srcAddress.toLowerCase(),
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
-    transactionHash: event.transaction.hash,
+    transactionHash: meta.transactionHash,
   });
 };
 
@@ -51,6 +61,6 @@ const handleOrdersCanceled = async ({ event, context }) => {
 const { setHandler } = require("../../node_modules/envio/src/HandlerRegister.res.mjs");
 
 // KuruMarket registrations
-setHandler("KuruMarket", "OrderCreated", handleOrderCreated);
-setHandler("KuruMarket", "Trade", handleTrade);
-setHandler("KuruMarket", "OrdersCanceled", handleOrdersCanceled);
+setHandler("KuruMarket", "OrderCreated", handleOrderCreated, TX_HASH_OPTIONS);
+setHandler("KuruMarket", "Trade", handleTrade, TX_HASH_OPTIONS);
+setHandler("KuruMarket", "OrdersCanceled", handleOrdersCanceled, TX_HASH_OPTIONS);
