@@ -77,12 +77,12 @@ Worker environment (secrets are entered in Render, never committed):
 |---|---|
 | `ENVIO_PG_HOST` / `ENVIO_PG_PORT` / `ENVIO_PG_USER` / `ENVIO_PG_PASSWORD` / `ENVIO_PG_DATABASE` | from the database's **internal** connection info |
 | `ENVIO_PG_SSL_MODE` | `require` |
+| `ENVIO_API_TOKEN` | your Envio API token (required: Envio uses HyperSync for this chain) |
 | `ENVIO_HASURA` | `true` |
 | `ENVIO_INDEXER_PORT` | `10000` |
 | `HASURA_GRAPHQL_ENDPOINT` | `https://<hasura-service>.onrender.com/v1/metadata` |
 | `HASURA_GRAPHQL_ADMIN_SECRET` | same value as the Hasura service |
 
-`ENVIO_API_TOKEN` is not needed: this chain is indexed over RPC.
 
 ### Free-plan caveats
 
