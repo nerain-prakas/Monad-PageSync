@@ -62,11 +62,11 @@ node --test test/eventMeta.test.js
 
 ## Deploy to Render
 
-The indexer runs on Render as a **Background Worker** built from `envio/Dockerfile` (`envio start`, never `dev` or `-r`). It uses the same Render PostgreSQL database as the Hasura service, and Hasura serves the GraphQL API to the Express backend.
+The indexer runs on Render as a **free Web Service** built from `envio/Dockerfile` (`envio start`, never `dev` or `-r`). Envio's HTTP server (`/healthz`) listens on Render's web port (`ENVIO_INDEXER_PORT=10000`). It uses the same Render PostgreSQL database as the Hasura service, and Hasura serves the GraphQL API to the Express backend.
 
 | Piece | Render service |
 |---|---|
-| Indexer | Background Worker `monad-pagesync-envio` (Docker, root directory `envio`) |
+| Indexer | Web Service `monad-pagesync-envio` (Docker, root directory `envio`, branch `envio-render`) |
 | GraphQL | Web service `monad-pagesync-hasura` |
 | Database | PostgreSQL `monad-pagesync-db` |
 | API | Web service `Monad-PageSync` (set `ENVIO_GRAPHQL_URL` to the Hasura `/v1/graphql` URL) |
@@ -78,10 +78,19 @@ Worker environment (secrets are entered in Render, never committed):
 | `ENVIO_PG_HOST` / `ENVIO_PG_PORT` / `ENVIO_PG_USER` / `ENVIO_PG_PASSWORD` / `ENVIO_PG_DATABASE` | from the database's **internal** connection info |
 | `ENVIO_PG_SSL_MODE` | `require` |
 | `ENVIO_HASURA` | `true` |
+| `ENVIO_INDEXER_PORT` | `10000` |
 | `HASURA_GRAPHQL_ENDPOINT` | `https://<hasura-service>.onrender.com/v1/metadata` |
 | `HASURA_GRAPHQL_ADMIN_SECRET` | same value as the Hasura service |
 
 `ENVIO_API_TOKEN` is not needed: this chain is indexed over RPC.
+
+### Free-plan caveats
+
+- **Sleeping.** Free web services sleep after ~15 minutes without inbound traffic, which would stop indexing. `keepalive.mjs` runs beside Envio and requests the service's own public `/healthz` every 10 minutes to keep it awake. This is a workaround, not a guarantee.
+- **Instance hours.** Free services share ~750 instance-hours per month per workspace. An always-awake indexer uses ~720 on its own, so other free services (Hasura, the backend) may run out of hours late in the month.
+- **Memory.** Free instances have 512 MB; the Node heap is capped at 400 MB. If the service restarts with out-of-memory errors, a paid plan is needed.
+- **Database.** A free Render PostgreSQL database expires after 30 days.
+- **Cold Hasura.** A sleeping Hasura service takes a while to wake; the first start may need one redeploy of the indexer.
 
 ### Existing data
 
