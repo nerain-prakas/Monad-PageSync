@@ -8,7 +8,6 @@ Benchmark and address endpoints operate independently, while order, trade, and K
 ---
 
 **Table of Contents**
-
 - "Overview" (#overview)
 - "Features" (#features)
 - "Prerequisites" (#prerequisites)
