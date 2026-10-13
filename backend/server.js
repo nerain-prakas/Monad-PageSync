@@ -80,18 +80,34 @@ function loadJson(filePath) {
  * Execute a GraphQL query against the Envio endpoint.
  * Returns { data, errors } or throws on network error.
  */
-async function queryEnvio(query, variables = {}) {
-  const res = await fetch(ENVIO_GRAPHQL_URL, {
-    method : 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body   : JSON.stringify({ query, variables }),
-  });
 
-  if (!res.ok) {
-    throw new Error(`Envio responded with HTTP ${res.status}`);
+async function queryEnvio(query, variables = {}) {
+  const adminSecret = process.env.HASURA_GRAPHQL_ADMIN_SECRET;
+
+  if (!adminSecret) {
+    throw new Error(
+      'Missing HASURA_GRAPHQL_ADMIN_SECRET environment variable'
+    );
   }
 
-  return res.json();
+  const res = await fetch(ENVIO_GRAPHQL_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-hasura-admin-secret': adminSecret,
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  const result = await res.json();
+
+  if (!res.ok || result.errors) {
+    throw new Error(
+      `Hasura GraphQL error: ${JSON.stringify(result.errors || result)}`
+    );
+  }
+
+  return result;
 }
 
 /**
